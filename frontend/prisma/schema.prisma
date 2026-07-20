@@ -1,0 +1,168 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id             String          @id @default(uuid())
+  name           String
+  twilioPhone    String          @unique
+  forwardPhone   String?
+  stripeSecret   String?
+  agents         Agent[]
+  services       Service[]
+  kbEntries      KnowledgeBase[]
+  jobs           Job[]
+  payments       Payment[]
+  reminders      Reminder[]
+  smsLogs        SmsLog[]
+  calls          Call[]
+  appointments   Appointment[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Agent {
+  id                String        @id @default(uuid())
+  name              String
+  prompt            String        @db.Text
+  voiceId           String
+  phoneNumber       String?       @unique
+  calendarConnected Boolean       @default(false)
+  calendarEmail     String?
+  tenantId          String?
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calls             Call[]
+  appointments      Appointment[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model Lead {
+  id           String        @id @default(uuid())
+  name         String?
+  phone        String        @unique
+  email        String?
+  status       String        @default("NEW") // NEW, QUALIFIED, BOOKED, COLD
+  interest     String        @default("MEDIUM") // HIGH, MEDIUM, LOW
+  notes        String?       @db.Text
+  calls        Call[]
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Call {
+  id           String      @id @default(uuid())
+  sid          String?     @unique // Twilio Call SID
+  direction    String      // INBOUND, OUTBOUND
+  status       String      // COMPLETED, BUSY, NO_ANSWER, FAILED, IN_PROGRESS
+  callerName   String?
+  callerPhone  String
+  duration     Int         @default(0) // in seconds
+  recordingUrl String?
+  summary      String?     @db.Text
+  sentiment    String?     // POSITIVE, NEUTRAL, NEGATIVE
+  transcript   Json?       // Array of dialog turns: { role: string, text: string, timestamp: string }[]
+  agentId      String
+  agent        Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  leadId       String?
+  lead         Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  tenantId     String?
+  tenant       Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+}
+
+model Appointment {
+  id            String     @id @default(uuid())
+  title         String
+  startTime     DateTime
+  endTime       DateTime
+  googleEventId String?
+  leadId        String
+  lead          Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  agentId       String
+  agent         Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tenantId      String?
+  tenant        Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reminders     Reminder[]
+  createdAt     DateTime   @default(now())
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  requiresDeposit Boolean  @default(false)
+  depositAmount   Float    @default(0.0)
+  createdAt       DateTime @default(now())
+}
+
+model KnowledgeBase {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  question  String   @db.Text
+  answer    String   @db.Text
+  embedding Json?
+  createdAt DateTime @default(now())
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  queueName   String
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payload     Json
+  status      String   @default("PENDING") // PENDING, PROCESSING, DONE, FAILED
+  availableAt DateTime @default(now())
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  error       String?  @db.Text
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amount              Float
+  phone               String
+  link                String    @db.Text
+  stripeSessionId     String?   @unique
+  stripePaymentIntent String?
+  status              String    @default("PENDING") // PENDING, PAID, FAILED
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime? @updatedAt
+}
+
+model Reminder {
+  id            String      @id @default(uuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  phone         String
+  message       String      @db.Text
+  scheduledAt   DateTime
+  status        String      @default("PENDING") // PENDING, SENT, FAILED
+  attempts      Int         @default(0)
+  maxAttempts   Int         @default(3)
+  error         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  sentAt        DateTime?
+}
+
+model SmsLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone     String
+  message   String   @db.Text
+  status    String   @default("SENT") // SENT, FAILED
+  createdAt DateTime @default(now())
+}
