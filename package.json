@@ -6,7 +6,9 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w api",
     "build:frontend": "npm run build -w frontend",
-    "build:backend": "npm run build -w api"
+    "build:backend": "npm run build -w api",
+    "build": "npm run build:backend",
+    "start": "npm run start -w api"
   },
   "workspaces": [
     "frontend",
