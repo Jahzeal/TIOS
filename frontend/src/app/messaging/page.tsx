@@ -63,7 +63,7 @@ export default function MessagingPage() {
   // Modal State for Outbound SMS
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTenantName, setSelectedTenantName] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("+1 (555) 000-1122");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [smsText, setSmsText] = useState("");
   const [sentSuccess, setSentSuccess] = useState(false);
 
@@ -89,12 +89,6 @@ export default function MessagingPage() {
 
     async function fetchTenants() {
       try {
-        const res = await fetch(`${API_BASE_URL}/tenants`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setTenants(data);
-            setSelectedTenantName(data[0].name);
           }
         }
       } catch (e) {
@@ -460,6 +454,7 @@ export default function MessagingPage() {
                   required
                   value={recipientPhone}
                   onChange={(e) => setRecipientPhone(e.target.value)}
+                  placeholder="e.g. +15551234567"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                 />
               </div>
