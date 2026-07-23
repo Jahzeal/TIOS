@@ -86,12 +86,3 @@ export default function Header({
     </header>
   );
 }
-
-        {/* User Avatar */}
-        <div className="h-8 w-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-semibold text-xs">
-          <User className="h-4 w-4" />
-        </div>
-      </div>
-    </header>
-  );
-}

@@ -16,6 +16,10 @@ export class OpenAiService {
   }
 
   public getClient(): OpenAI {
+    const key = process.env.OPENAI_API_KEY || config.openaiApiKey;
+    if (key && (this.openai as any)?.apiKey !== key) {
+      this.openai = new OpenAI({ apiKey: key });
+    }
     return this.openai;
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MessageSquare, Clock, Search, Activity, ChevronLeft, ChevronRight, Plus, Send, CheckCircle } from "lucide-react";
+import { MessageSquare, Clock, Search, Activity, ChevronLeft, ChevronRight, Plus, Send, CheckCircle, Wifi, RefreshCw } from "lucide-react";
 
 interface ApiSmsLog {
   id: string;
@@ -67,6 +67,33 @@ export default function MessagingPage() {
   const [smsText, setSmsText] = useState("");
   const [sentSuccess, setSentSuccess] = useState(false);
 
+  // Ping Backend State
+  const [isPinging, setIsPinging] = useState(false);
+  const [pingStatus, setPingStatus] = useState<{ status: "idle" | "success" | "error"; message?: string; latency?: number }>({ status: "idle" });
+
+  const handlePingBackend = async () => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    setIsPinging(true);
+    const start = Date.now();
+    try {
+      const res = await fetch(`${API_BASE_URL}/health`);
+      const latency = Date.now() - start;
+      if (res.ok) {
+        const data = await res.json();
+        setPingStatus({ status: "success", message: data.message || "Online", latency });
+        setIsLive(true);
+      } else {
+        setPingStatus({ status: "error", message: `HTTP ${res.status}`, latency });
+      }
+    } catch (err: any) {
+      const latency = Date.now() - start;
+      setPingStatus({ status: "error", message: err.message || "Unreachable", latency });
+      setIsLive(false);
+    } finally {
+      setIsPinging(false);
+    }
+  };
+
   // Debounce search input (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -89,7 +116,11 @@ export default function MessagingPage() {
 
     async function fetchTenants() {
       try {
-          }
+        const res = await fetch(`${API_BASE_URL}/tenants?limit=100`);
+        if (res.ok) {
+          const result = await res.json();
+          const dataList = Array.isArray(result) ? result : result.data || [];
+          setTenants(dataList);
         }
       } catch (e) {
         // tenant list handled gracefully
@@ -209,6 +240,27 @@ export default function MessagingPage() {
             <Activity className="h-3 w-3 animate-pulse" />
             <span>{isLive ? `${meta.total} ${activeTab === "sms" ? "SMS Logs" : "Reminders"}` : "API Offline"}</span>
           </span>
+          <button
+            onClick={handlePingBackend}
+            disabled={isPinging}
+            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-indigo-500/50 text-xs font-medium rounded-xl transition-all shadow-md inline-flex items-center space-x-1.5 disabled:opacity-50"
+          >
+            <Wifi className={`h-3.5 w-3.5 ${isPinging ? "animate-spin text-indigo-400" : "text-emerald-400"}`} />
+            <span>{isPinging ? "Pinging..." : "Ping Backend"}</span>
+          </button>
+
+          {pingStatus.status !== "idle" && (
+            <span
+              className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-mono border ${
+                pingStatus.status === "success"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+              }`}
+            >
+              <span>{pingStatus.status === "success" ? `🟢 ${pingStatus.latency}ms` : `🔴 ${pingStatus.message}`}</span>
+            </span>
+          )}
+
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl transition-all shadow-md inline-flex items-center space-x-1.5"

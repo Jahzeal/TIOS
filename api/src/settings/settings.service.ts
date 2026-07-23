@@ -61,6 +61,7 @@ export class SettingsService {
         };
       }
     } catch (err) {
+      console.error('[SettingsService] testPrompt error:', err);
       return {
         reply: 'Thank you for calling! I am configured with your system instructions and ready to assist callers.',
       };

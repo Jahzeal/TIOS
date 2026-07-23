@@ -8,8 +8,7 @@
     "build:frontend": "npm run build -w frontend",
     "build:backend": "npm run build -w api",
     "build": "npm run build:backend",
-    "start": "npm run start -w api",
-    "db:push": "prisma db push --schema=frontend/prisma/schema.prisma"
+    "start": "npm run start -w api"
   },
   "workspaces": [
     "frontend",
