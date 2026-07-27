@@ -21,7 +21,7 @@ export class SettingsController {
   }
 
   @Post('prompt-test')
-  testPrompt(@Body() body: { systemPrompt: string; userMessage: string }) {
-    return this.settingsService.testPrompt(body.systemPrompt, body.userMessage);
+  testPrompt(@Body() body: { systemPrompt: string; userMessage: string; agentId?: string }) {
+    return this.settingsService.testPrompt(body.systemPrompt, body.userMessage, body.agentId);
   }
 }

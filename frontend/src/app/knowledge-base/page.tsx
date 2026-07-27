@@ -67,10 +67,11 @@ export default function KnowledgeBasePage() {
       try {
         const res = await fetch(`${API_BASE_URL}/tenants`);
         if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setTenants(data);
-            setSelectedTenantName(data[0].name);
+          const result = await res.json();
+          const tenantList = Array.isArray(result) ? result : (result.data || []);
+          if (tenantList.length > 0) {
+            setTenants(tenantList);
+            setSelectedTenantName(tenantList[0].name);
           }
         }
       } catch (e) {

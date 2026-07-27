@@ -10,6 +10,11 @@ interface ApiAgent {
   prompt: string;
   phoneNumber?: string | null;
   tenantId?: string | null;
+  tenant?: {
+    id: string;
+    name: string;
+    twilioPhone?: string | null;
+  } | null;
 }
 
 interface ChatTurn {
@@ -148,6 +153,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           systemPrompt: systemPrompt,
           userMessage: userText,
+          agentId: selectedAgentId,
         }),
       });
 
@@ -247,7 +253,7 @@ export default function SettingsPage() {
                   ) : (
                     agents.map((ag) => (
                       <option key={ag.id} value={ag.id}>
-                        {ag.name} ({ag.phoneNumber || ag.id.slice(0, 8)})
+                        {ag.tenant?.name ? `${ag.tenant.name} — ${ag.name}` : ag.name} ({ag.tenant?.twilioPhone || ag.phoneNumber || ag.id.slice(0, 8)})
                       </option>
                     ))
                   )}

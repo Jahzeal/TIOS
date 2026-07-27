@@ -40,12 +40,37 @@ export class SettingsService {
     }
   }
 
-  async testPrompt(systemPrompt: string, userMessage: string) {
+  async testPrompt(systemPrompt: string, userMessage: string, agentId?: string) {
     try {
-      const apiKey = config.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = config.groqApiKey || config.openaiApiKey || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
       if (apiKey && apiKey !== 'disabled-key') {
+        let fullPrompt = systemPrompt || 'You are a helpful receptionist.';
+
+        if (agentId) {
+          try {
+            const agent = await this.prisma.agent.findUnique({ where: { id: agentId } });
+            if (agent?.tenantId) {
+              const kbEntries = await this.prisma.knowledgeBase.findMany({
+                where: { tenantId: agent.tenantId },
+              });
+              if (kbEntries.length > 0) {
+                const kbText = kbEntries.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join('\n\n');
+                fullPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer questions accurately):\n${kbText}`;
+              }
+            }
+          } catch (e) {}
+        } else {
+          try {
+            const kbEntries = await this.prisma.knowledgeBase.findMany({ take: 20 });
+            if (kbEntries.length > 0) {
+              const kbText = kbEntries.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join('\n\n');
+              fullPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer questions accurately):\n${kbText}`;
+            }
+          } catch (e) {}
+        }
+
         const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-          { role: 'system', content: systemPrompt || 'You are a helpful receptionist.' },
+          { role: 'system', content: fullPrompt },
           { role: 'user', content: userMessage },
         ];
 

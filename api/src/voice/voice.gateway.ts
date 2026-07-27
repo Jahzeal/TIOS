@@ -48,10 +48,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let voiceId = '21m00Tcm4TlvDq8ikWAM';
 
     try {
-      const agent = await this.prisma.agent.findUnique({ where: { id: agentId } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { id: agentId },
+        include: { tenant: true },
+      });
       if (agent) {
         systemPrompt = agent.prompt;
         voiceId = agent.voiceId;
+
+        if (agent.tenantId) {
+          const kbEntries = await this.prisma.knowledgeBase.findMany({
+            where: { tenantId: agent.tenantId },
+          });
+          if (kbEntries.length > 0) {
+            const kbText = kbEntries.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join('\n\n');
+            systemPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer caller questions accurately):\n${kbText}`;
+          }
+        }
       }
     } catch (err) {
       console.error('[WebSocket Context] Agent query failed:', err);
