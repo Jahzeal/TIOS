@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   PhoneIncoming,
   PhoneOutgoing,
+  PhoneCall,
   Play,
   Pause,
   Search,
@@ -12,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import WebVoiceCallModal from "@/components/WebVoiceCallModal";
 
 interface CallTurn {
   role: "agent" | "user" | string;
@@ -64,6 +66,7 @@ export default function CallsPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
+  const [isWebCallOpen, setIsWebCallOpen] = useState(false);
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -156,7 +159,14 @@ export default function CallsPage() {
             Real-time Twilio media stream audit log, STT transcriptions, and audio playback simulator.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setIsWebCallOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-xl transition-all shadow-md inline-flex items-center space-x-2 animate-pulse hover:animate-none"
+          >
+            <PhoneCall className="h-4 w-4" />
+            <span>Start Web Voice Call</span>
+          </button>
           <span
             className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
               isLive
@@ -413,6 +423,13 @@ export default function CallsPage() {
           )}
         </div>
       </div>
+
+      <WebVoiceCallModal
+        isOpen={isWebCallOpen}
+        onClose={() => setIsWebCallOpen(false)}
+        agentName={selectedCall?.agent?.name || "AI Receptionist"}
+        tenantName={selectedCall?.tenant?.name || "Default Business"}
+      />
     </div>
   );
 }

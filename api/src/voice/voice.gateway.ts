@@ -29,7 +29,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(ws: WebSocket, req: any) {
     const parsedUrl = url.parse(req.url || '', true);
-    const tenantId = parsedUrl.query.tenantId as string;
+    let tenantId = parsedUrl.query.tenantId as string;
     const agentId = parsedUrl.query.agentId as string;
     const callSid = parsedUrl.query.callSid as string;
     const callerPhone = decodeURIComponent((parsedUrl.query.callerPhone as string) || 'Unknown');
@@ -48,15 +48,26 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let voiceId = '21m00Tcm4TlvDq8ikWAM';
 
     try {
-      const agent = await this.prisma.agent.findUnique({
-        where: { id: agentId },
-        include: { tenant: true },
-      });
+      let agent = null;
+      if (agentId && agentId !== 'default-agent') {
+        agent = await this.prisma.agent.findUnique({
+          where: { id: agentId },
+          include: { tenant: true },
+        });
+      }
+
+      if (!agent) {
+        agent = await this.prisma.agent.findFirst({
+          include: { tenant: true },
+        });
+      }
+
       if (agent) {
         systemPrompt = agent.prompt;
         voiceId = agent.voiceId;
 
         if (agent.tenantId) {
+          tenantId = agent.tenantId;
           const kbEntries = await this.prisma.knowledgeBase.findMany({
             where: { tenantId: agent.tenantId },
           });
