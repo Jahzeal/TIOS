@@ -47,29 +47,30 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let systemPrompt = 'You are a helpful AI receptionist.';
     let voiceId = '21m00Tcm4TlvDq8ikWAM';
 
+    let activeAgent: any = null;
+
     try {
-      let agent = null;
       if (agentId && agentId !== 'default-agent') {
-        agent = await this.prisma.agent.findUnique({
+        activeAgent = await this.prisma.agent.findUnique({
           where: { id: agentId },
           include: { tenant: true },
         });
       }
 
-      if (!agent) {
-        agent = await this.prisma.agent.findFirst({
+      if (!activeAgent) {
+        activeAgent = await this.prisma.agent.findFirst({
           include: { tenant: true },
         });
       }
 
-      if (agent) {
-        systemPrompt = agent.prompt;
-        voiceId = agent.voiceId;
+      if (activeAgent) {
+        systemPrompt = activeAgent.prompt;
+        voiceId = activeAgent.voiceId;
 
-        if (agent.tenantId) {
-          tenantId = agent.tenantId;
+        if (activeAgent.tenantId) {
+          tenantId = activeAgent.tenantId;
           const kbEntries = await this.prisma.knowledgeBase.findMany({
-            where: { tenantId: agent.tenantId },
+            where: { tenantId: activeAgent.tenantId },
           });
           if (kbEntries.length > 0) {
             const kbText = kbEntries.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join('\n\n');
@@ -83,20 +84,34 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     chatHistory.push({ role: 'system', content: systemPrompt });
 
-    try {
-      dbCallRecord = await this.prisma.call.create({
-        data: {
-          sid: callSid,
-          direction: 'INBOUND',
-          status: 'IN_PROGRESS',
-          callerPhone: callerPhone,
-          agentId: agentId,
-          tenantId: tenantId,
-        },
-      });
-      callRecordId = dbCallRecord.id;
-    } catch (err) {
-      console.error('[WebSocket DB] Failed to create call record:', err);
+    let targetAgentId = activeAgent?.id;
+    let targetTenantId = activeAgent?.tenantId || (tenantId !== 'web-tenant' ? tenantId : undefined);
+
+    if (!targetAgentId) {
+      const fallbackAgent = await this.prisma.agent.findFirst();
+      if (fallbackAgent) {
+        targetAgentId = fallbackAgent.id;
+        targetTenantId = fallbackAgent.tenantId || undefined;
+      }
+    }
+
+    if (targetAgentId) {
+      try {
+        dbCallRecord = await this.prisma.call.create({
+          data: {
+            sid: callSid,
+            direction: 'INBOUND',
+            status: 'IN_PROGRESS',
+            callerPhone: callerPhone,
+            agentId: targetAgentId,
+            tenantId: targetTenantId || undefined,
+          },
+        });
+        callRecordId = dbCallRecord.id;
+        console.log(`[WebSocket DB] Call record created successfully: ${callRecordId}`);
+      } catch (err) {
+        console.error('[WebSocket DB] Failed to create call record:', err);
+      }
     }
 
     let deepgramLive: any = null;
