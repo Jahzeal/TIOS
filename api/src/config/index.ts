@@ -5,6 +5,7 @@ export const config = {
   port: process.env.PORT || 5000,
   databaseUrl: process.env.DATABASE_URL || '',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
+  groqApiKey: process.env.GROQ_API_KEY || '',
   deepgramApiKey: process.env.DEEPGRAM_API_KEY || '',
   elevenLabsApiKey: process.env.ELEVEN_LABS_API_KEY || '',
   emergencyKeywords: [
