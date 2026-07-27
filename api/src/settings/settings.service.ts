@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAiService } from '../services/ai/openai.service';
+import { config } from '../config';
 
 @Injectable()
 export class SettingsService {
@@ -41,9 +42,10 @@ export class SettingsService {
 
   async testPrompt(systemPrompt: string, userMessage: string) {
     try {
-      if (process.env.OPENAI_API_KEY) {
+      const apiKey = config.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (apiKey && apiKey !== 'disabled-key') {
         const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: systemPrompt || 'You are a helpful receptionist.' },
           { role: 'user', content: userMessage },
         ];
 
@@ -57,13 +59,14 @@ export class SettingsService {
         };
       } else {
         return {
-          reply: `[AI Simulated Response]: Thank you for calling! I am operating under your instructions: "${systemPrompt.slice(0, 80)}..."`,
+          reply: `[AI Simulated Response]: Thank you for calling! I am operating under your instructions: "${(systemPrompt || '').slice(0, 80)}..."`,
         };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[SettingsService] testPrompt error:', err);
+      const errMsg = err?.message || 'Unknown OpenAI error';
       return {
-        reply: 'Thank you for calling! I am configured with your system instructions and ready to assist callers.',
+        reply: `[AI Response Error]: ${errMsg}`,
       };
     }
   }
