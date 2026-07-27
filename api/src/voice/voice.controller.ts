@@ -26,6 +26,16 @@ export class VoiceController {
 
     const { tenant, agent } = await this.voiceService.getTenantAndAgent(toPhone);
 
+    if (!tenant || !agent) {
+      res.setHeader('Content-Type', 'text/xml');
+      return res.send(`
+        <Response>
+          <Say>System error. Unable to locate receptionist.</Say>
+          <Hangup/>
+        </Response>
+      `);
+    }
+
     if (await this.voiceService.isRateLimited(fromPhone, tenant.id)) {
       console.log(`[Rate Limiting] Caller ${fromPhone} is rate limited.`);
       res.setHeader('Content-Type', 'text/xml');
