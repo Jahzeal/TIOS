@@ -50,7 +50,7 @@ export class SettingsService {
         ];
 
         const completion = await this.openAiService.getClient().chat.completions.create({
-          model: 'gpt-4o-mini',
+          model: this.openAiService.getModel(),
           messages: messages,
         });
 
