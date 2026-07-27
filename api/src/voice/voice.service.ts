@@ -6,47 +6,84 @@ import { config } from '../config';
 export class VoiceService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  public async getTenantAndAgent(twilioPhone: string) {
-    let tenant = await this.prisma.tenant.findFirst({
-      where: { twilioPhone },
-      include: { agents: true },
-    });
+  public async getTenantAndAgent(rawTwilioPhone: string) {
+    const twilioPhone = (rawTwilioPhone || '').trim();
+    const cleanDigits = twilioPhone.replace(/\D/g, '');
 
-    if (!tenant) {
-      tenant = await this.prisma.tenant.create({
-        data: {
-          name: 'Default Business',
-          twilioPhone: twilioPhone || '+18885550101',
-          forwardPhone: '+15555555555',
-          agents: {
-            create: {
-              name: 'Emma',
-              prompt:
-                'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely. Keep responses under 2 sentences.',
-              voiceId: '21m00Tcm4TlvDq8ikWAM',
-            },
-          },
+    let tenant = null;
+
+    if (twilioPhone) {
+      tenant = await this.prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { twilioPhone: twilioPhone },
+            { twilioPhone: { contains: cleanDigits.slice(-10) } },
+          ],
         },
         include: { agents: true },
       });
     }
 
-    const agent =
-      tenant.agents[0] ||
-      (await this.prisma.agent.create({
-        data: {
+    if (!tenant) {
+      tenant = await this.prisma.tenant.findFirst({
+        include: { agents: true },
+      });
+    }
+
+    if (!tenant) {
+      const safePhone = twilioPhone || `+1888${Math.floor(1000000 + Math.random() * 9000000)}`;
+      try {
+        tenant = await this.prisma.tenant.create({
+          data: {
+            name: 'Default Business',
+            twilioPhone: safePhone,
+            forwardPhone: '+15555555555',
+            agents: {
+              create: {
+                name: 'Emma',
+                prompt:
+                  'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely. Keep responses under 2 sentences.',
+                voiceId: '21m00Tcm4TlvDq8ikWAM',
+              },
+            },
+          },
+          include: { agents: true },
+        });
+      } catch (e) {
+        tenant = await this.prisma.tenant.findFirst({ include: { agents: true } });
+      }
+    }
+
+    let agent = tenant?.agents?.[0];
+    if (!agent && tenant) {
+      try {
+        agent = await this.prisma.agent.create({
+          data: {
+            name: 'Emma',
+            prompt: 'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
+            voiceId: '21m00Tcm4TlvDq8ikWAM',
+            tenantId: tenant.id,
+          },
+        });
+      } catch (e) {
+        // Fallback dummy agent
+        agent = {
+          id: 'default-agent',
           name: 'Emma',
-          prompt: 'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
+          prompt: 'You are Emma, a friendly 24/7 AI Receptionist.',
           voiceId: '21m00Tcm4TlvDq8ikWAM',
           tenantId: tenant.id,
-        },
-      }));
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as any;
+      }
+    }
 
     return { tenant, agent };
   }
 
   public async isRateLimited(fromNumber: string, tenantId: string): Promise<boolean> {
-    if (!fromNumber || fromNumber === 'Unknown') return false;
+    if (!fromNumber || fromNumber === 'Unknown' || !tenantId) return false;
 
     const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000);
     const recentCallCount = await this.prisma.call.count({
