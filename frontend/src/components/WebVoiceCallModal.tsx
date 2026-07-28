@@ -62,6 +62,7 @@ export default function WebVoiceCallModal({
       setTranscripts([]);
       setCurrentAgentText("");
       setIsMuted(false);
+      nextStartTimeRef.current = 0;
 
       // Get user microphone
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -155,12 +156,56 @@ export default function WebVoiceCallModal({
     }
   };
 
+  const nextStartTimeRef = useRef<number>(0);
+
+  const mulawToPcmSample = (mulawByte: number): number => {
+    mulawByte = ~mulawByte & 0xff;
+    const sign = mulawByte & 0x80 ? -1 : 1;
+    const exponent = (mulawByte >> 4) & 0x07;
+    const mantissa = mulawByte & 0x0f;
+    const sample = (((mantissa << 3) + 0x84) << exponent) - 0x84;
+    return (sign * sample) / 32768.0;
+  };
+
   const playAudioPayload = (base64Data: string) => {
     try {
-      const audio = new Audio(`data:audio/mp3;base64,${base64Data}`);
-      audio.play().catch(() => {});
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        audioContextRef.current = new AudioCtx();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const binaryString = window.atob(base64Data);
+      const len = binaryString.length;
+      const pcm32 = new Float32Array(len);
+
+      for (let i = 0; i < len; i++) {
+        pcm32[i] = mulawToPcmSample(binaryString.charCodeAt(i));
+      }
+
+      const buffer = ctx.createBuffer(1, len, 8000);
+      buffer.getChannelData(0).set(pcm32);
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+
+      const currentTime = ctx.currentTime;
+      if (nextStartTimeRef.current < currentTime) {
+        nextStartTimeRef.current = currentTime;
+      }
+
+      source.start(nextStartTimeRef.current);
+      nextStartTimeRef.current += buffer.duration;
     } catch (e) {
-      // Audio playback fallback
+      console.error("Web Audio playback error:", e);
+      try {
+        const audio = new Audio(`data:audio/mp3;base64,${base64Data}`);
+        audio.play().catch(() => {});
+      } catch (err) {}
     }
   };
 
@@ -186,6 +231,13 @@ export default function WebVoiceCallModal({
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch (e) {}
+      audioContextRef.current = null;
+    }
+    nextStartTimeRef.current = 0;
     setCallStatus("ENDED");
   };
 
