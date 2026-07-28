@@ -70,8 +70,9 @@ export class SpeechSession {
     }
 
     try {
+      const activeVoiceId = !this.voiceId || this.voiceId === '21m00Tcm4TlvDq8ikWAM' ? 'EXAVITQu4vr4xnSDxMaL' : this.voiceId;
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}/stream?output_format=ulaw_8000`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${activeVoiceId}/stream?output_format=ulaw_8000`,
         {
           method: 'POST',
           headers: {
@@ -80,7 +81,7 @@ export class SpeechSession {
           },
           body: JSON.stringify({
             text: text,
-            model_id: 'eleven_monolingual_v1',
+            model_id: 'eleven_multilingual_v2',
             voice_settings: {
               stability: 0.5,
               similarity_boost: 0.75,
@@ -90,7 +91,8 @@ export class SpeechSession {
       );
 
       if (!response.ok) {
-        console.error('[TTS] ElevenLabs returned error status:', response.statusText);
+        const errorText = await response.text();
+        console.error(`[TTS Error] ElevenLabs status ${response.status} (${response.statusText}):`, errorText);
         return;
       }
 

@@ -16,6 +16,8 @@ export class VoiceController {
   async handleVoice(
     @Body() body: any,
     @Headers('host') hostHeader: string,
+    @Headers('x-forwarded-host') forwardedHost: string,
+    @Headers('x-forwarded-proto') forwardedProto: string,
     @Res() res: Response,
   ) {
     const toPhone = (body.To || '').toString();
@@ -47,8 +49,9 @@ export class VoiceController {
       `);
     }
 
-    const host = hostHeader || `localhost:${config.port}`;
-    const wsUrl = `wss://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}`;
+    const host = (forwardedHost || hostHeader || `localhost:${config.port}`).split(',')[0].trim();
+    const scheme = forwardedProto === 'http' && host.includes('localhost') ? 'ws' : 'wss';
+    const wsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}`;
 
     res.setHeader('Content-Type', 'text/xml');
     return res.send(`

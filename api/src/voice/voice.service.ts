@@ -43,7 +43,7 @@ export class VoiceService {
                 name: 'Emma',
                 prompt:
                   'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely. Keep responses under 2 sentences.',
-                voiceId: '21m00Tcm4TlvDq8ikWAM',
+                voiceId: 'EXAVITQu4vr4xnSDxMaL',
               },
             },
           },
@@ -61,7 +61,7 @@ export class VoiceService {
           data: {
             name: 'Emma',
             prompt: 'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
-            voiceId: '21m00Tcm4TlvDq8ikWAM',
+            voiceId: 'EXAVITQu4vr4xnSDxMaL',
             tenantId: tenant.id,
           },
         });
@@ -71,7 +71,7 @@ export class VoiceService {
           id: 'default-agent',
           name: 'Emma',
           prompt: 'You are Emma, a friendly 24/7 AI Receptionist.',
-          voiceId: '21m00Tcm4TlvDq8ikWAM',
+          voiceId: 'EXAVITQu4vr4xnSDxMaL',
           tenantId: tenant.id,
           createdAt: new Date(),
           updatedAt: new Date(),

@@ -45,7 +45,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const startTime = Date.now();
 
     let systemPrompt = 'You are a helpful AI receptionist.';
-    let voiceId = '21m00Tcm4TlvDq8ikWAM';
+    let voiceId = 'EXAVITQu4vr4xnSDxMaL';
 
     let activeAgent: any = null;
 
