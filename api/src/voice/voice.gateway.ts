@@ -117,7 +117,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let deepgramLive: any = null;
     let llmCancellation = { cancelled: false };
 
-    const dgStream = this.deepgramService.createDeepgramLiveStream();
+    const isWebCall = tenantId === 'web-tenant' || callerPhone.includes('Web Browser');
+    const dgStream = this.deepgramService.createDeepgramLiveStream(isWebCall);
     if (dgStream) {
       deepgramLive = dgStream;
 
@@ -138,6 +139,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           if (isFinal) {
             console.log(`[STT Final] Caller: "${transcript}"`);
+            try {
+              ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: transcript }));
+            } catch (e) {}
 
             if (containsEmergency(transcript)) {
               console.log(`[Safety Engine] Emergency keyword detected: "${transcript}"`);
@@ -199,6 +203,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
               if (!llmCancellation.cancelled) {
                 chatHistory.push({ role: 'assistant', content: fullResponseText });
+                try {
+                  ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: fullResponseText }));
+                } catch (e) {}
               }
             } catch (err) {
               console.error('[LLM] OpenAI streaming error:', err);
@@ -234,6 +241,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               role: 'assistant',
               content: 'Hello! Thank you for calling. How can I help you today?',
             });
+            try {
+              ws.send(
+                JSON.stringify({
+                  event: 'transcript',
+                  role: 'agent',
+                  text: 'Hello! Thank you for calling. How can I help you today?',
+                }),
+              );
+            } catch (e) {}
             break;
           case 'media':
             if (isCallActive && deepgramLive && deepgramLive.getReadyState() === 1) {

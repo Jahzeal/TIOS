@@ -4,7 +4,7 @@ import { config } from '../../config';
 
 @Injectable()
 export class DeepgramService {
-  public createDeepgramLiveStream() {
+  public createDeepgramLiveStream(isWeb: boolean = false) {
     if (!config.deepgramApiKey) {
       console.warn('[DeepgramService] DEEPGRAM_API_KEY is missing. Operating in simulation mode.');
       return null;
@@ -12,6 +12,13 @@ export class DeepgramService {
 
     try {
       const deepgram = createClient(config.deepgramApiKey);
+      if (isWeb) {
+        return deepgram.listen.live({
+          model: 'nova-2',
+          interim_results: true,
+          endpointing: 300,
+        });
+      }
       return deepgram.listen.live({
         model: 'nova-2-phonecall',
         encoding: 'mulaw',
