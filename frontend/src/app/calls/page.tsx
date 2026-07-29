@@ -374,7 +374,8 @@ export default function CallsPage() {
                           if (typeof window !== "undefined" && window.speechSynthesis) {
                             window.speechSynthesis.cancel();
                             const textToRead = transcriptList
-                              .map((t: any) => `${t.role === "agent" ? "Agent" : "User"}: ${t.text || t.content || ""}`)
+                              .map((t: any) => `${t.text || t.content || ""}`.trim())
+                              .filter(Boolean)
                               .join(". ");
 
                             const utterance = new SpeechSynthesisUtterance(textToRead);

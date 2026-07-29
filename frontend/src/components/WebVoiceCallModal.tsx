@@ -57,6 +57,14 @@ export default function WebVoiceCallModal({
 
   const startCall = async () => {
     try {
+      // Synchronously initialize and unblock AudioContext on user click gesture
+      if (typeof window !== "undefined") {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioCtx();
+        ctx.resume();
+        audioContextRef.current = ctx;
+      }
+
       setCallStatus("CONNECTING");
       setCallDuration(0);
       setTranscripts([]);
