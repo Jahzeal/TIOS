@@ -29,10 +29,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(ws: WebSocket, req: any) {
     const parsedUrl = url.parse(req.url || '', true);
-    let tenantId = parsedUrl.query.tenantId as string;
-    const agentId = parsedUrl.query.agentId as string;
-    const callSid = parsedUrl.query.callSid as string;
-    const callerPhone = decodeURIComponent((parsedUrl.query.callerPhone as string) || 'Unknown');
+    const tenantIdQuery = (parsedUrl.query.tenantId || parsedUrl.query['amp;tenantId'] || '') as string;
+    const agentIdQuery = (parsedUrl.query.agentId || parsedUrl.query['amp;agentId'] || '') as string;
+    const callSidQuery = (parsedUrl.query.callSid || parsedUrl.query['amp;callSid'] || '') as string;
+    const callerPhoneQuery = (parsedUrl.query.callerPhone || parsedUrl.query['amp;callerPhone'] || '') as string;
+
+    let tenantId = tenantIdQuery;
+    const agentId = agentIdQuery;
+    const callSid = callSidQuery || `call-${Date.now()}`;
+    const callerPhone = decodeURIComponent(callerPhoneQuery || 'Unknown');
 
     console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}`);
 
@@ -194,14 +199,24 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   const sentence = currentSentence.substring(0, endPos).trim();
                   currentSentence = currentSentence.substring(endPos);
 
-                  if (sentence && speechSession) {
-                    speechSession.enqueueSentence(sentence);
+                  if (sentence) {
+                    if (!speechSession && (streamSid || callSid)) {
+                      speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
+                    }
+                    if (speechSession) {
+                      speechSession.enqueueSentence(sentence);
+                    }
                   }
                 }
               }
 
-              if (currentSentence.trim() && !llmCancellation.cancelled && speechSession) {
-                speechSession.enqueueSentence(currentSentence.trim());
+              if (currentSentence.trim() && !llmCancellation.cancelled) {
+                if (!speechSession && (streamSid || callSid)) {
+                  speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
+                }
+                if (speechSession) {
+                  speechSession.enqueueSentence(currentSentence.trim());
+                }
               }
 
               if (fullResponseText.trim()) {
@@ -265,6 +280,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
             break;
           case 'media':
+            if (data.streamSid && !streamSid) {
+              streamSid = data.streamSid;
+            }
+            if (!speechSession && (streamSid || callSid)) {
+              speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
+            }
             mediaChunkCount++;
             if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
               console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received (${data.media?.payload?.length || 0} chars).`);
