@@ -72,7 +72,7 @@ export class SpeechSession {
     try {
       const activeVoiceId = !this.voiceId || this.voiceId === '21m00Tcm4TlvDq8ikWAM' ? 'EXAVITQu4vr4xnSDxMaL' : this.voiceId;
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${activeVoiceId}/stream?output_format=ulaw_8000`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${activeVoiceId}/stream?output_format=ulaw_8000&optimize_streaming_latency=4`,
         {
           method: 'POST',
           headers: {
@@ -81,9 +81,9 @@ export class SpeechSession {
           },
           body: JSON.stringify({
             text: text,
-            model_id: 'eleven_multilingual_v2',
+            model_id: 'eleven_flash_v2_5',
             voice_settings: {
-              stability: 0.5,
+              stability: 0.4,
               similarity_boost: 0.75,
             },
           }),

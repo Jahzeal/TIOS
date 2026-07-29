@@ -16,7 +16,7 @@ export class DeepgramService {
         return deepgram.listen.live({
           model: 'nova-2',
           interim_results: true,
-          endpointing: 300,
+          endpointing: 200,
         });
       }
       return deepgram.listen.live({
@@ -25,7 +25,7 @@ export class DeepgramService {
         sample_rate: 8000,
         channels: 1,
         interim_results: true,
-        endpointing: 300,
+        endpointing: 200,
       });
     } catch (err) {
       console.error('[DeepgramService] Failed to create Deepgram stream:', err);

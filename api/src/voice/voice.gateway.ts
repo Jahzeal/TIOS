@@ -184,10 +184,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 fullResponseText += content;
                 currentSentence += content;
 
-                const sentenceEndRegex = /[.!?]\s+/;
+                const sentenceEndRegex = /[,.!?;:]\s+/;
                 const match = currentSentence.match(sentenceEndRegex);
-                if (match && match.index !== undefined) {
-                  const endPos = match.index + 1;
+                const wordCount = currentSentence.trim().split(/\s+/).length;
+                if ((match && match.index !== undefined) || wordCount >= 6) {
+                  const endPos = match && match.index !== undefined ? match.index + 1 : currentSentence.length;
                   const sentence = currentSentence.substring(0, endPos).trim();
                   currentSentence = currentSentence.substring(endPos);
 

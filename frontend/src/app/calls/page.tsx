@@ -68,6 +68,14 @@ export default function CallsPage() {
   const [isLive, setIsLive] = useState(false);
   const [isWebCallOpen, setIsWebCallOpen] = useState(false);
 
+  // Stop audio playback when switching selected call
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsPlaying(false);
+  }, [selectedCall?.id]);
+
   // Debounce search input (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -350,7 +358,32 @@ export default function CallsPage() {
                 ) : (
                   <div className="flex items-center space-x-4">
                     <button
-                      onClick={() => setIsPlaying(!isPlaying)}
+                      onClick={() => {
+                        if (isPlaying) {
+                          if (typeof window !== "undefined" && window.speechSynthesis) {
+                            window.speechSynthesis.cancel();
+                          }
+                          setIsPlaying(false);
+                        } else {
+                          const transcriptList = Array.isArray(selectedCall?.transcript) ? selectedCall.transcript : [];
+                          if (transcriptList.length === 0) {
+                            alert("No recorded transcript available for this call.");
+                            return;
+                          }
+                          setIsPlaying(true);
+                          if (typeof window !== "undefined" && window.speechSynthesis) {
+                            window.speechSynthesis.cancel();
+                            const textToRead = transcriptList
+                              .map((t: any) => `${t.role === "agent" ? "Agent" : "User"}: ${t.text || t.content || ""}`)
+                              .join(". ");
+
+                            const utterance = new SpeechSynthesisUtterance(textToRead);
+                            utterance.onend = () => setIsPlaying(false);
+                            utterance.onerror = () => setIsPlaying(false);
+                            window.speechSynthesis.speak(utterance);
+                          }
+                        }
+                      }}
                       className="p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all shadow-md"
                     >
                       {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
