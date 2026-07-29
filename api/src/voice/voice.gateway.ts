@@ -244,7 +244,36 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
+    let hasGreeted = false;
     let mediaChunkCount = 0;
+
+    const triggerGreeting = () => {
+      if (!hasGreeted) {
+        hasGreeted = true;
+        if (!speechSession && (streamSid || callSid)) {
+          speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
+        }
+        const greetingText = 'Hello! Thank you for calling. How can I help you today?';
+        if (speechSession) {
+          speechSession.enqueueSentence(greetingText);
+        }
+        chatHistory.push({
+          role: 'assistant',
+          content: greetingText,
+        });
+        if (isWebCall) {
+          try {
+            ws.send(
+              JSON.stringify({
+                event: 'transcript',
+                role: 'agent',
+                text: greetingText,
+              }),
+            );
+          } catch (e) {}
+        }
+      }
+    };
 
     ws.on('message', (message: string) => {
       try {
@@ -260,24 +289,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           case 'start':
             streamSid = data.start?.streamSid || '';
             console.log(`[Twilio Start] Media stream started. StreamSid: ${streamSid}`);
-
-            speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
-            speechSession.enqueueSentence('Hello! Thank you for calling. How can I help you today?');
-            chatHistory.push({
-              role: 'assistant',
-              content: 'Hello! Thank you for calling. How can I help you today?',
-            });
-            if (isWebCall) {
-              try {
-                ws.send(
-                  JSON.stringify({
-                    event: 'transcript',
-                    role: 'agent',
-                    text: 'Hello! Thank you for calling. How can I help you today?',
-                  }),
-                );
-              } catch (e) {}
-            }
+            triggerGreeting();
             break;
           case 'media':
             if (data.streamSid && !streamSid) {
@@ -286,6 +298,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             if (!speechSession && (streamSid || callSid)) {
               speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
             }
+            triggerGreeting();
             mediaChunkCount++;
             if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
               console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received (${data.media?.payload?.length || 0} chars).`);
