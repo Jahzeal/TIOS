@@ -30,39 +30,25 @@ export class VoiceController {
 
     if (!tenant || !agent) {
       res.setHeader('Content-Type', 'text/xml');
-      return res.send(`
-        <Response>
-          <Say>System error. Unable to locate receptionist.</Say>
-          <Hangup/>
-        </Response>
-      `);
+      return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>System error. Unable to locate receptionist.</Say><Hangup/></Response>`.trim());
     }
 
     if (await this.voiceService.isRateLimited(fromPhone, tenant.id)) {
       console.log(`[Rate Limiting] Caller ${fromPhone} is rate limited.`);
       res.setHeader('Content-Type', 'text/xml');
-      return res.send(`
-        <Response>
-          <Say>You have exceeded the maximum allowed calls per hour. Please try again later.</Say>
-          <Hangup/>
-        </Response>
-      `);
+      return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>You have exceeded the maximum allowed calls per hour. Please try again later.</Say><Hangup/></Response>`.trim());
     }
 
     const host = (forwardedHost || hostHeader || `localhost:${config.port}`).split(',')[0].trim();
     const scheme = forwardedProto === 'http' && host.includes('localhost') ? 'ws' : 'wss';
-    const wsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}`;
+    const rawWsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}`;
+    const xmlWsUrl = rawWsUrl.replace(/&/g, '&amp;');
+    const xmlRedirect = `/voice/post-stream?callSid=${callSid}`.replace(/&/g, '&amp;');
+
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting to the AI assistant.</Say><Connect><Stream url="${xmlWsUrl}" /></Connect><Redirect>${xmlRedirect}</Redirect></Response>`.trim();
 
     res.setHeader('Content-Type', 'text/xml');
-    return res.send(`
-      <Response>
-        <Say>Connecting to the AI assistant.</Say>
-        <Connect>
-          <Stream url="${wsUrl}" />
-        </Connect>
-        <Redirect>/voice/post-stream?callSid=${callSid}</Redirect>
-      </Response>
-    `);
+    return res.send(twiml);
   }
 
   @Post('voice/post-stream')

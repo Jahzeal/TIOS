@@ -202,10 +202,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 speechSession.enqueueSentence(currentSentence.trim());
               }
 
-              if (!llmCancellation.cancelled) {
-                chatHistory.push({ role: 'assistant', content: fullResponseText });
+              if (fullResponseText.trim()) {
+                const savedContent = llmCancellation.cancelled ? `${fullResponseText.trim()}...` : fullResponseText.trim();
+                chatHistory.push({ role: 'assistant', content: savedContent });
                 try {
-                  ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: fullResponseText }));
+                  ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
                 } catch (e) {}
               }
             } catch (err) {

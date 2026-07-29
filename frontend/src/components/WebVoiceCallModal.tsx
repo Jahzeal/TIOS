@@ -133,7 +133,18 @@ export default function WebVoiceCallModal({
         try {
           const data = JSON.parse(event.data);
 
-          if (data.event === "media" && data.media?.payload) {
+          if (data.event === "clear") {
+            if (audioContextRef.current) {
+              try {
+                audioContextRef.current.close().catch(() => {});
+              } catch (e) {}
+              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+              const ctx = new AudioCtx();
+              ctx.resume();
+              audioContextRef.current = ctx;
+            }
+            nextStartTimeRef.current = 0;
+          } else if (data.event === "media" && data.media?.payload) {
             // Play raw audio or text response
             playAudioPayload(data.media.payload);
           } else if (data.event === "transcript") {
