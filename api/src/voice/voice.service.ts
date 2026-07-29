@@ -106,19 +106,9 @@ export class VoiceService {
 
     if (call && call.status === 'FORWARD_REQUESTED' && call.tenant?.forwardPhone) {
       console.log(`[Emergency Routing] Dialing forward phone: ${call.tenant.forwardPhone}`);
-      return `
-        <Response>
-          <Say>An emergency has been detected. Forwarding you to our support staff immediately. Please hold.</Say>
-          <Dial>${call.tenant.forwardPhone}</Dial>
-        </Response>
-      `;
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An emergency has been detected. Forwarding you to our support staff immediately. Please hold.</Say><Dial>${call.tenant.forwardPhone}</Dial></Response>`.trim();
     }
 
-    return `
-      <Response>
-        <Say>Thank you for calling. Goodbye.</Say>
-        <Hangup/>
-      </Response>
-    `;
+    return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for calling. Goodbye.</Say><Hangup/></Response>`.trim();
   }
 }

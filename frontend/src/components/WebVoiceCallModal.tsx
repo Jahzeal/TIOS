@@ -135,15 +135,13 @@ export default function WebVoiceCallModal({
 
           if (data.event === "clear") {
             if (audioContextRef.current) {
-              try {
-                audioContextRef.current.close().catch(() => {});
-              } catch (e) {}
-              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-              const ctx = new AudioCtx();
-              ctx.resume();
-              audioContextRef.current = ctx;
+              if (audioContextRef.current.state === "suspended") {
+                audioContextRef.current.resume().catch(() => {});
+              }
+              nextStartTimeRef.current = audioContextRef.current.currentTime;
+            } else {
+              nextStartTimeRef.current = 0;
             }
-            nextStartTimeRef.current = 0;
           } else if (data.event === "media" && data.media?.payload) {
             // Play raw audio or text response
             playAudioPayload(data.media.payload);

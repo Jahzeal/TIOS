@@ -139,9 +139,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           if (isFinal) {
             console.log(`[STT Final] Caller: "${transcript}"`);
-            try {
-              ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: transcript }));
-            } catch (e) {}
+            if (isWebCall) {
+              try {
+                ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: transcript }));
+              } catch (e) {}
+            }
 
             if (containsEmergency(transcript)) {
               console.log(`[Safety Engine] Emergency keyword detected: "${transcript}"`);
@@ -205,9 +207,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               if (fullResponseText.trim()) {
                 const savedContent = llmCancellation.cancelled ? `${fullResponseText.trim()}...` : fullResponseText.trim();
                 chatHistory.push({ role: 'assistant', content: savedContent });
-                try {
-                  ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
-                } catch (e) {}
+                if (isWebCall) {
+                  try {
+                    ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
+                  } catch (e) {}
+                }
               }
             } catch (err) {
               console.error('[LLM] OpenAI streaming error:', err);
@@ -248,15 +252,17 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               role: 'assistant',
               content: 'Hello! Thank you for calling. How can I help you today?',
             });
-            try {
-              ws.send(
-                JSON.stringify({
-                  event: 'transcript',
-                  role: 'agent',
-                  text: 'Hello! Thank you for calling. How can I help you today?',
-                }),
-              );
-            } catch (e) {}
+            if (isWebCall) {
+              try {
+                ws.send(
+                  JSON.stringify({
+                    event: 'transcript',
+                    role: 'agent',
+                    text: 'Hello! Thank you for calling. How can I help you today?',
+                  }),
+                );
+              } catch (e) {}
+            }
             break;
           case 'media':
             mediaChunkCount++;
