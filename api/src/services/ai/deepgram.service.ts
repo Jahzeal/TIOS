@@ -17,6 +17,7 @@ export class DeepgramService {
           model: 'nova-2',
           smart_format: true,
           interim_results: true,
+          punctuate: true,
           endpointing: 200,
         });
       }
@@ -27,6 +28,7 @@ export class DeepgramService {
         channels: 1,
         smart_format: true,
         interim_results: true,
+        punctuate: true,
         endpointing: 200,
       });
     } catch (err) {
