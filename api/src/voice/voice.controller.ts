@@ -45,7 +45,7 @@ export class VoiceController {
     const xmlWsUrl = rawWsUrl.replace(/&/g, '&amp;');
     const xmlRedirect = `/voice/post-stream?callSid=${callSid}`.replace(/&/g, '&amp;');
 
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting to the AI assistant.</Say><Connect><Stream url="${xmlWsUrl}" /></Connect><Redirect>${xmlRedirect}</Redirect></Response>`.trim();
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="${xmlWsUrl}" /></Connect><Redirect>${xmlRedirect}</Redirect></Response>`.trim();
 
     res.setHeader('Content-Type', 'text/xml');
     return res.send(twiml);
