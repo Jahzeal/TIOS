@@ -15,6 +15,7 @@ export class DeepgramService {
       if (isWeb) {
         return deepgram.listen.live({
           model: 'nova-2',
+          smart_format: true,
           interim_results: true,
           endpointing: 200,
         });
@@ -24,6 +25,7 @@ export class DeepgramService {
         encoding: 'mulaw',
         sample_rate: 8000,
         channels: 1,
+        smart_format: true,
         interim_results: true,
         endpointing: 200,
       });

@@ -216,17 +216,22 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       deepgramLive.on(LiveTranscriptionEvents.Error, (err: any) => {
-        console.error('[Deepgram] Error:', err);
+        console.error('[Deepgram Live Error]:', JSON.stringify(err || {}));
       });
 
-      deepgramLive.on(LiveTranscriptionEvents.Close, () => {
-        console.log('[Deepgram] Connection closed');
+      deepgramLive.on(LiveTranscriptionEvents.Close, (event: any) => {
+        console.log('[Deepgram Close Reason]:', JSON.stringify(event || {}));
       });
     }
+
+    let mediaChunkCount = 0;
 
     ws.on('message', (message: string) => {
       try {
         const data = JSON.parse(message);
+        if (data.event !== 'media') {
+          console.log('[VoiceGateway WS Event]:', data.event, JSON.stringify(data));
+        }
 
         switch (data.event) {
           case 'connected':
@@ -253,6 +258,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             } catch (e) {}
             break;
           case 'media':
+            mediaChunkCount++;
+            if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
+              console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received (${data.media?.payload?.length || 0} chars).`);
+            }
             if (isCallActive && deepgramLive) {
               try {
                 const rawAudio = Buffer.from(data.media.payload, 'base64');
@@ -266,10 +275,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             console.log('[Twilio Stop] Media stream stopped.');
             break;
           default:
+            console.log('[VoiceGateway WS Unknown Event]:', data);
             break;
         }
       } catch (err) {
-        console.error('[WebSocket Message Error] Parsing failed:', err);
+        console.error('[WebSocket Message Error] Parsing failed:', err, 'Raw text:', message);
       }
     });
 
