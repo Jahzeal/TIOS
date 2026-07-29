@@ -253,9 +253,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             } catch (e) {}
             break;
           case 'media':
-            if (isCallActive && deepgramLive && deepgramLive.getReadyState() === 1) {
-              const rawAudio = Buffer.from(data.media.payload, 'base64');
-              deepgramLive.send(rawAudio);
+            if (isCallActive && deepgramLive) {
+              try {
+                const rawAudio = Buffer.from(data.media.payload, 'base64');
+                deepgramLive.send(rawAudio);
+              } catch (err) {
+                console.error('[Deepgram Send Error]:', err);
+              }
             }
             break;
           case 'stop':
