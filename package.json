@@ -13,5 +13,9 @@
   "workspaces": [
     "frontend",
     "api"
-  ]
+  ],
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "1.29.2",
+    "lightningcss-linux-x64-musl": "1.29.2"
+  }
 }
