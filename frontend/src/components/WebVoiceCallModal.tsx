@@ -134,6 +134,15 @@ export default function WebVoiceCallModal({
           const data = JSON.parse(event.data);
 
           if (data.event === "clear") {
+            // Stop and disconnect all actively playing audio source nodes instantly
+            activeSourcesRef.current.forEach((src) => {
+              try {
+                src.stop();
+                src.disconnect();
+              } catch (e) {}
+            });
+            activeSourcesRef.current = [];
+
             if (audioContextRef.current) {
               if (audioContextRef.current.state === "suspended") {
                 audioContextRef.current.resume().catch(() => {});
@@ -174,6 +183,7 @@ export default function WebVoiceCallModal({
   };
 
   const nextStartTimeRef = useRef<number>(0);
+  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
 
   const mulawToPcmSample = (mulawByte: number): number => {
     mulawByte = ~mulawByte & 0xff;
@@ -217,6 +227,11 @@ export default function WebVoiceCallModal({
 
       source.start(nextStartTimeRef.current);
       nextStartTimeRef.current += buffer.duration;
+
+      activeSourcesRef.current.push(source);
+      source.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== source);
+      };
     } catch (e) {
       console.error("Web Audio playback error:", e);
       try {

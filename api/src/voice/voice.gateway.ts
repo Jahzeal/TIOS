@@ -37,7 +37,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let tenantId = tenantIdQuery;
     const agentId = agentIdQuery;
     const callSid = callSidQuery || `call-${Date.now()}`;
-    const callerPhone = decodeURIComponent(callerPhoneQuery || 'Unknown');
+    const rawPhone = decodeURIComponent(callerPhoneQuery || '');
+    const callerPhone = rawPhone && rawPhone !== 'Unknown' ? rawPhone : '+1 (Web Voice Call)';
 
     console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}`);
 
@@ -174,7 +175,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
             chatHistory.push({ role: 'user', content: transcript });
 
-            llmCancellation = { cancelled: false };
+            // Cancel any previous LLM streaming loop
+            llmCancellation.cancelled = true;
+
+            // Bind a new cancellation token for this specific completion
+            const currentToken = { cancelled: false };
+            llmCancellation = currentToken;
+
             try {
               const stream = await this.openAiService.getLlmCompletionStream(chatHistory);
 
@@ -182,7 +189,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               let currentSentence = '';
 
               for await (const chunk of stream) {
-                if (llmCancellation.cancelled) {
+                if (currentToken.cancelled || !isCallActive) {
                   console.log('[LLM] Generative response cancelled.');
                   break;
                 }
@@ -199,7 +206,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   const sentence = currentSentence.substring(0, endPos).trim();
                   currentSentence = currentSentence.substring(endPos);
 
-                  if (sentence) {
+                  if (sentence && !currentToken.cancelled) {
                     if (!speechSession && (streamSid || callSid)) {
                       speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
                     }
@@ -210,7 +217,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 }
               }
 
-              if (currentSentence.trim() && !llmCancellation.cancelled) {
+              if (currentSentence.trim() && !currentToken.cancelled) {
                 if (!speechSession && (streamSid || callSid)) {
                   speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
                 }
@@ -220,9 +227,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
 
               if (fullResponseText.trim()) {
-                const savedContent = llmCancellation.cancelled ? `${fullResponseText.trim()}...` : fullResponseText.trim();
+                const savedContent = currentToken.cancelled ? `${fullResponseText.trim()}...` : fullResponseText.trim();
                 chatHistory.push({ role: 'assistant', content: savedContent });
-                if (isWebCall) {
+                if (isWebCall && !currentToken.cancelled) {
                   try {
                     ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
                   } catch (e) {}

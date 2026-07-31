@@ -36,6 +36,7 @@ interface DashboardCall {
   summary?: string | null;
   sentiment?: string | null;
   tenant?: { name: string } | null;
+  createdAt?: string | Date | null;
 }
 
 const emptyStats: DashboardStats = {
@@ -262,6 +263,7 @@ export default function DashboardPage() {
                 <th className="py-3 px-4">Type</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Duration</th>
+                <th className="py-3 px-4">Time</th>
                 <th className="py-3 px-4">Summary</th>
                 <th className="py-3 px-4">Sentiment</th>
               </tr>
@@ -270,64 +272,80 @@ export default function DashboardPage() {
               {isLoading ? (
                 [...Array(3)].map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={6} className="py-4 px-4">
+                    <td colSpan={7} className="py-4 px-4">
                       <div className="h-4 bg-slate-800 rounded w-full"></div>
                     </td>
                   </tr>
                 ))
               ) : recentCalls.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
+                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
                     No recent calls logged yet.
                   </td>
                 </tr>
               ) : (
-                recentCalls.map((call) => (
-                  <tr key={call.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4 font-medium text-white">
-                      {call.callerName || call.tenant?.name || "Anonymous Caller"}
-                      <div className="text-xs text-slate-500">{call.callerPhone}</div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300">
-                        {call.direction === "INBOUND" ? (
-                          <PhoneIncoming className="h-3 w-3 mr-1 text-emerald-400" />
-                        ) : (
-                          <PhoneOutgoing className="h-3 w-3 mr-1 text-blue-400" />
-                        )}
-                        {call.direction}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          call.status === "COMPLETED"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : call.status === "FORWARD_REQUESTED"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}
-                      >
-                        {call.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-400">{call.duration}s</td>
-                    <td className="py-3.5 px-4 text-xs text-slate-300 max-w-xs truncate">{call.summary || "—"}</td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                          call.sentiment === "POSITIVE"
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : call.sentiment === "NEGATIVE"
-                            ? "bg-rose-500/10 text-rose-400"
-                            : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {call.sentiment || "NEUTRAL"}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                recentCalls.map((call) => {
+                  const rawPhone = call.callerPhone || "";
+                  const phoneDisplay = !rawPhone || rawPhone === "Unknown" ? "+1 (Web Voice Call)" : rawPhone;
+                  const displayName = call.callerName || call.tenant?.name || "Inbound Caller";
+                  const timeFormatted = call.createdAt
+                    ? new Date(call.createdAt).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "—";
+
+                  return (
+                    <tr key={call.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-medium text-white">
+                        {displayName}
+                        <div className="text-xs text-slate-400 font-mono">{phoneDisplay}</div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300">
+                          {call.direction === "INBOUND" ? (
+                            <PhoneIncoming className="h-3 w-3 mr-1 text-emerald-400" />
+                          ) : (
+                            <PhoneOutgoing className="h-3 w-3 mr-1 text-blue-400" />
+                          )}
+                          {call.direction}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            call.status === "COMPLETED"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : call.status === "FORWARD_REQUESTED"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          }`}
+                        >
+                          {call.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-400 font-mono">{call.duration}s</td>
+                      <td className="py-3.5 px-4 text-slate-400 text-xs font-mono whitespace-nowrap">{timeFormatted}</td>
+                      <td className="py-3.5 px-4 text-xs text-slate-300 max-w-xs truncate">{call.summary || "—"}</td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                            call.sentiment === "POSITIVE"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : call.sentiment === "NEGATIVE"
+                              ? "bg-rose-500/10 text-rose-400"
+                              : "bg-slate-800 text-slate-400"
+                          }`}
+                        >
+                          {call.sentiment || "NEUTRAL"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

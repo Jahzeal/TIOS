@@ -233,8 +233,18 @@ export default function CallsPage() {
               </div>
             ) : (
               calls.map((call) => {
-                const displayName = call.callerName || call.tenant?.name || "Anonymous Caller";
-                const timeStr = call.createdAt ? new Date(call.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—";
+                const displayName = call.callerName || call.tenant?.name || "Inbound Caller";
+                const rawPhone = call.callerPhone || "";
+                const phoneDisplay = !rawPhone || rawPhone === "Unknown" ? "+1 (Web Voice Call)" : rawPhone;
+                const timeStr = call.createdAt
+                  ? new Date(call.createdAt).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })
+                  : "—";
 
                 return (
                   <div
@@ -264,7 +274,7 @@ export default function CallsPage() {
                         </div>
                         <div>
                           <h3 className="font-semibold text-white text-sm">{displayName}</h3>
-                          <p className="text-xs text-slate-500">{call.callerPhone}</p>
+                          <p className="text-xs text-slate-400 font-mono">{phoneDisplay}</p>
                         </div>
                       </div>
                       <span className="text-[11px] text-slate-400 font-mono">{timeStr}</span>

@@ -25,6 +25,7 @@ export class SpeechSession {
     this.currentCancellation.cancelled = true;
     this.sentenceQueue = [];
     this.isPlaying = false;
+    this.currentCancellation = { cancelled: false };
 
     try {
       this.ws.send(
