@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --config=prisma.config.ts --schema=prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -30,6 +30,7 @@
     "@types/recharts": "^1.8.29",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "lightningcss": "^1.29.2",
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
