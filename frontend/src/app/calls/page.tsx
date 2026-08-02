@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import WebVoiceCallModal from "@/components/WebVoiceCallModal";
 
 interface CallTurn {
@@ -47,7 +48,10 @@ interface PaginationMeta {
   hasPrevPage: boolean;
 }
 
-export default function CallsPage() {
+function CallsPageContent() {
+  const searchParams = useSearchParams();
+  const urlCallId = searchParams ? searchParams.get("callId") : null;
+
   const [calls, setCalls] = useState<ApiCall[]>([]);
   const [selectedCall, setSelectedCall] = useState<ApiCall | null>(null);
   const [filter, setFilter] = useState<"ALL" | "INBOUND" | "OUTBOUND" | "COMPLETED" | "FORWARD_REQUESTED">("ALL");
@@ -124,6 +128,10 @@ export default function CallsPage() {
           setCalls(callData);
           setMeta(metaData);
           setSelectedCall((prev) => {
+            if (urlCallId) {
+              const matchedCall = callData.find((c: ApiCall) => c.id === urlCallId || c.sid === urlCallId);
+              if (matchedCall) return matchedCall;
+            }
             if (prev && callData.some((c: ApiCall) => c.id === prev.id)) {
               return callData.find((c: ApiCall) => c.id === prev.id) || callData[0] || null;
             }
@@ -475,5 +483,13 @@ export default function CallsPage() {
         tenantName={selectedCall?.tenant?.name || "Default Business"}
       />
     </div>
+  );
+}
+
+export default function CallsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading call history...</div>}>
+      <CallsPageContent />
+    </Suspense>
   );
 }

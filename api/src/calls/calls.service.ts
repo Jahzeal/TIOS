@@ -19,7 +19,26 @@ export class CallsService {
     const where: any = {};
 
     if (params.status && params.status !== 'ALL') {
-      where.status = params.status;
+      if (params.status === 'FORWARD_REQUESTED') {
+        const callbackOR = [
+          { status: 'FORWARD_REQUESTED' },
+          { summary: { contains: 'callback', mode: 'insensitive' } },
+          { summary: { contains: 'call back', mode: 'insensitive' } },
+          { summary: { contains: 'human agent', mode: 'insensitive' } },
+          { summary: { contains: 'representative', mode: 'insensitive' } },
+          { summary: { contains: 'speak to human', mode: 'insensitive' } },
+          { summary: { contains: 'transfer call', mode: 'insensitive' } },
+          { summary: { contains: 'transfer to agent', mode: 'insensitive' } },
+        ];
+        if (where.OR) {
+          where.AND = [{ OR: where.OR }, { OR: callbackOR }];
+          delete where.OR;
+        } else {
+          where.OR = callbackOR;
+        }
+      } else {
+        where.status = params.status;
+      }
     }
 
     if (params.direction && params.direction !== 'ALL') {

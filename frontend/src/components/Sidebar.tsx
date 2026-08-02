@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   TrendingUp,
   PhoneCall,
+  PhoneForwarded,
   Users,
   Sliders,
   BookOpen,
@@ -25,6 +26,7 @@ interface SidebarProps {
 export const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: TrendingUp },
   { name: "Call History", href: "/calls", icon: PhoneCall },
+  { name: "Requested Callbacks", href: "/callbacks", icon: PhoneForwarded },
   { name: "Leads Pipeline", href: "/leads", icon: Users },
   { name: "Agent Settings", href: "/settings", icon: Sliders },
   { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },

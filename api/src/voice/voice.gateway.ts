@@ -18,6 +18,31 @@ function containsEmergency(text: string): boolean {
   return config.emergencyKeywords.some((keyword) => normalized.includes(keyword));
 }
 
+function containsTransferOrCallback(text: string): boolean {
+  const normalized = text.toLowerCase().trim();
+
+  // Exclude financial/money transfers so bank transfers aren't misclassified
+  if (
+    normalized.includes('money') ||
+    normalized.includes('bank') ||
+    normalized.includes('$') ||
+    normalized.includes('dollar') ||
+    normalized.includes('wire') ||
+    normalized.includes('payment')
+  ) {
+    return false;
+  }
+
+  const keywords = [
+    'call me back', 'callback', 'call back', 'speak to a human',
+    'talk to a human', 'transfer me', 'human agent', 'talk to an agent',
+    'representative', 'speak to representative', 'have someone call me',
+    'talk to a person', 'real person', 'live agent', 'transfer to human',
+    'transfer to agent', 'transfer call'
+  ];
+  return keywords.some((kw) => normalized.includes(kw));
+}
+
 function containsGoodbye(text: string): boolean {
   const keywords = ['goodbye', 'bye', 'talk to you later', 'have a nice day', 'hang up', 'see you later', 'bye bye'];
   const normalized = text.toLowerCase().trim();
