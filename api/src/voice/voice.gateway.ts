@@ -18,6 +18,12 @@ function containsEmergency(text: string): boolean {
   return config.emergencyKeywords.some((keyword) => normalized.includes(keyword));
 }
 
+function containsGoodbye(text: string): boolean {
+  const keywords = ['goodbye', 'bye', 'talk to you later', 'have a nice day', 'hang up', 'see you later', 'bye bye'];
+  const normalized = text.toLowerCase().trim();
+  return keywords.some((kw) => normalized.includes(kw));
+}
+
 @WebSocketGateway({ path: '/stream' })
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -234,6 +240,24 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
                   } catch (e) {}
                 }
+              }
+
+              if (containsGoodbye(transcript) && !currentToken.cancelled) {
+                console.log(`[Goodbye Engine] Goodbye intent detected: "${transcript}". Scheduling graceful hangup...`);
+                isCallActive = false;
+
+                if (isWebCall) {
+                  try {
+                    ws.send(JSON.stringify({ event: 'hangup' }));
+                  } catch (e) {}
+                }
+
+                setTimeout(() => {
+                  try {
+                    console.log('[Goodbye Engine] Closing WebSocket to hang up phone call.');
+                    ws.close();
+                  } catch (e) {}
+                }, 4500);
               }
             } catch (err) {
               console.error('[LLM] OpenAI streaming error:', err);

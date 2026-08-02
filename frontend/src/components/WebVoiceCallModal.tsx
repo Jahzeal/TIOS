@@ -151,6 +151,10 @@ export default function WebVoiceCallModal({
             } else {
               nextStartTimeRef.current = 0;
             }
+          } else if (data.event === "hangup") {
+            setTimeout(() => {
+              setCallStatus("ENDED");
+            }, 3500);
           } else if (data.event === "media" && data.media?.payload) {
             // Play raw audio or text response
             playAudioPayload(data.media.payload);
