@@ -9,6 +9,7 @@ export class SpeechSession {
   private sentenceQueue: string[] = [];
   private isPlaying = false;
   private currentCancellation = { cancelled: false };
+  private currentEpoch = 0;
 
   constructor(ws: WebSocket, streamSid: string, voiceId: string) {
     this.ws = ws;
@@ -22,10 +23,11 @@ export class SpeechSession {
   }
 
   public interrupt() {
+    console.log(`[Interruption Engine] Interrupting stream ${this.streamSid} (Epoch: ${this.currentEpoch})`);
     this.currentCancellation.cancelled = true;
+    this.currentEpoch++;
     this.sentenceQueue = [];
     this.isPlaying = false;
-    this.currentCancellation = { cancelled: false };
 
     try {
       this.ws.send(
@@ -37,7 +39,6 @@ export class SpeechSession {
     } catch (e) {
       console.error('[SpeechSession] Failed to send clear message:', e);
     }
-    console.log(`[Interruption Engine] Flushed audio buffer for stream ${this.streamSid}`);
   }
 
   private async processQueue() {
@@ -45,26 +46,27 @@ export class SpeechSession {
 
     this.isPlaying = true;
     this.currentCancellation = { cancelled: false };
+    const activeEpoch = this.currentEpoch;
 
     while (this.sentenceQueue.length > 0) {
       const sentence = this.sentenceQueue.shift();
       if (!sentence) continue;
 
-      if (this.currentCancellation.cancelled) break;
+      if (this.currentCancellation.cancelled || activeEpoch !== this.currentEpoch) break;
 
-      await this.speak(sentence, this.currentCancellation);
+      await this.speak(sentence, this.currentCancellation, activeEpoch);
     }
 
     this.isPlaying = false;
   }
 
-  private async speak(text: string, cancellation: { cancelled: boolean }) {
+  private async speak(text: string, cancellation: { cancelled: boolean }, epoch: number) {
     if (!config.elevenLabsApiKey) {
       console.log(`[ElevenLabs Simulation] Speaking: "${text}"`);
       const words = text.split(' ').length;
       const durationMs = Math.max(1000, words * 250);
       for (let i = 0; i < durationMs; i += 100) {
-        if (cancellation.cancelled) break;
+        if (cancellation.cancelled || epoch !== this.currentEpoch) break;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       return;
@@ -101,12 +103,22 @@ export class SpeechSession {
       if (!reader) return;
 
       while (true) {
-        if (cancellation.cancelled) {
+        if (cancellation.cancelled || epoch !== this.currentEpoch) {
+          try {
+            reader.cancel().catch(() => {});
+          } catch (e) {}
           break;
         }
 
         const { done, value } = await reader.read();
         if (done) break;
+
+        if (cancellation.cancelled || epoch !== this.currentEpoch) {
+          try {
+            reader.cancel().catch(() => {});
+          } catch (e) {}
+          break;
+        }
 
         if (value) {
           const base64Audio = Buffer.from(value).toString('base64');
