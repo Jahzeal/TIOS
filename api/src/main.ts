@@ -6,12 +6,30 @@ import { config } from './config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const allowedOrigins = [
+    'https://tios-frontend.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5000',
+  ];
+
   app.enableCors({
-    origin: (requestOrigin, callback) => callback(null, requestOrigin || '*'),
+    origin: (requestOrigin: string | undefined, callback: (err: Error | null, origin?: boolean) => void) => {
+      // Allow non-browser requests (like Twilio webhooks, Postman, server-to-server)
+      if (!requestOrigin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(requestOrigin) ||
+        requestOrigin.endsWith('.vercel.app');
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS security policy'));
+      }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: '*',
-    exposedHeaders: '*',
+    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
   });
   app.useWebSocketAdapter(new WsAdapter(app));
 
