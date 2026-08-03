@@ -18,30 +18,7 @@ function containsEmergency(text: string): boolean {
   return config.emergencyKeywords.some((keyword) => normalized.includes(keyword));
 }
 
-function containsTransferOrCallback(text: string): boolean {
-  const normalized = text.toLowerCase().trim();
 
-  // Exclude financial/money transfers so bank transfers aren't misclassified
-  if (
-    normalized.includes('money') ||
-    normalized.includes('bank') ||
-    normalized.includes('$') ||
-    normalized.includes('dollar') ||
-    normalized.includes('wire') ||
-    normalized.includes('payment')
-  ) {
-    return false;
-  }
-
-  const keywords = [
-    'call me back', 'callback', 'call back', 'speak to a human',
-    'talk to a human', 'transfer me', 'human agent', 'talk to an agent',
-    'representative', 'speak to representative', 'have someone call me',
-    'talk to a person', 'real person', 'live agent', 'transfer to human',
-    'transfer to agent', 'transfer call'
-  ];
-  return keywords.some((kw) => normalized.includes(kw));
-}
 
 function containsGoodbye(text: string): boolean {
   const keywords = ['goodbye', 'bye', 'talk to you later', 'have a nice day', 'hang up', 'see you later', 'bye bye'];
@@ -114,6 +91,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             systemPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer caller questions accurately):\n${kbText}`;
           }
         }
+      systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
       }
     } catch (err) {
       console.error('[WebSocket Context] Agent query failed:', err);
@@ -204,6 +182,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               return;
             }
 
+
+
             chatHistory.push({ role: 'user', content: transcript });
 
             // Cancel any previous LLM streaming loop
@@ -237,28 +217,31 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   const sentence = currentSentence.substring(0, endPos).trim();
                   currentSentence = currentSentence.substring(endPos);
 
-                  if (sentence && !currentToken.cancelled) {
+                  const cleanSentence = sentence.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+                  if (cleanSentence && !currentToken.cancelled) {
                     if (!speechSession && (streamSid || callSid)) {
                       speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
                     }
                     if (speechSession) {
-                      speechSession.enqueueSentence(sentence);
+                      speechSession.enqueueSentence(cleanSentence);
                     }
                   }
                 }
               }
 
-              if (currentSentence.trim() && !currentToken.cancelled) {
+              const finalSentence = currentSentence.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+              if (finalSentence && !currentToken.cancelled) {
                 if (!speechSession && (streamSid || callSid)) {
                   speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
                 }
                 if (speechSession) {
-                  speechSession.enqueueSentence(currentSentence.trim());
+                  speechSession.enqueueSentence(finalSentence);
                 }
               }
 
               if (fullResponseText.trim()) {
-                const savedContent = currentToken.cancelled ? `${fullResponseText.trim()}...` : fullResponseText.trim();
+                const cleanedFullText = fullResponseText.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+                const savedContent = currentToken.cancelled ? `${cleanedFullText}...` : cleanedFullText;
                 chatHistory.push({ role: 'assistant', content: savedContent });
                 if (isWebCall && !currentToken.cancelled) {
                   try {
@@ -267,7 +250,37 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 }
               }
 
-              if (containsGoodbye(transcript) && !currentToken.cancelled) {
+              if (fullResponseText.includes('[ACTION:REQUEST_CALLBACK]') && !currentToken.cancelled) {
+                console.log(`[AI Action Engine] LLM detected callback intent dynamically. Updating DB...`);
+                isCallActive = false;
+
+                if (isWebCall) {
+                  try {
+                    ws.send(JSON.stringify({ event: 'hangup' }));
+                  } catch (e) {}
+                }
+
+                try {
+                  if (callRecordId) {
+                    await this.prisma.call.update({
+                      where: { id: callRecordId },
+                      data: {
+                        status: 'FORWARD_REQUESTED',
+                        summary: `Callback/Transfer requested by caller: "${transcript}".`,
+                      },
+                    });
+                  }
+                } catch (err) {
+                  console.error('[AI Action Engine] DB Update Failed:', err);
+                }
+
+                setTimeout(() => {
+                  try {
+                    console.log('[AI Action Engine] Closing WebSocket connection after AI Action Callback.');
+                    ws.close();
+                  } catch (e) {}
+                }, 5000);
+              } else if (containsGoodbye(transcript) && !currentToken.cancelled) {
                 console.log(`[Goodbye Engine] Goodbye intent detected: "${transcript}". Scheduling graceful hangup...`);
                 isCallActive = false;
 
