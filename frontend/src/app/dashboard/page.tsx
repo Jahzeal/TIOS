@@ -286,8 +286,9 @@ export default function DashboardPage() {
               ) : (
                 recentCalls.map((call) => {
                   const rawPhone = call.callerPhone || "";
-                  const phoneDisplay = !rawPhone || rawPhone === "Unknown" ? "+1 (Web Voice Call)" : rawPhone;
-                  const displayName = call.callerName || call.tenant?.name || "Inbound Caller";
+                  const isWeb = !rawPhone || rawPhone === "Unknown" || rawPhone.includes("Web");
+                  const phoneDisplay = isWeb ? "+1 (Web Voice Call)" : rawPhone;
+                  const displayName = call.callerName || (isWeb ? "Web Voice Call" : rawPhone);
                   const timeFormatted = call.createdAt
                     ? new Date(call.createdAt).toLocaleString("en-US", {
                         month: "short",

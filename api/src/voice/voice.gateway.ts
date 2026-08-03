@@ -37,18 +37,38 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(ws: WebSocket, req: any) {
     const parsedUrl = url.parse(req.url || '', true);
-    const tenantIdQuery = (parsedUrl.query.tenantId || parsedUrl.query['amp;tenantId'] || '') as string;
-    const agentIdQuery = (parsedUrl.query.agentId || parsedUrl.query['amp;agentId'] || '') as string;
-    const callSidQuery = (parsedUrl.query.callSid || parsedUrl.query['amp;callSid'] || '') as string;
-    const callerPhoneQuery = (parsedUrl.query.callerPhone || parsedUrl.query['amp;callerPhone'] || '') as string;
+
+    const getQueryParam = (targetKey: string): string => {
+      if (!parsedUrl.query) return '';
+      for (const [key, val] of Object.entries(parsedUrl.query)) {
+        const cleanKey = key.replace(/^(amp;)+/i, '');
+        if (cleanKey.toLowerCase() === targetKey.toLowerCase()) {
+          const strVal = Array.isArray(val) ? val[0] : val;
+          return (strVal || '').toString().trim();
+        }
+      }
+      return '';
+    };
+
+    const tenantIdQuery = getQueryParam('tenantId');
+    const agentIdQuery = getQueryParam('agentId');
+    const callSidQuery = getQueryParam('callSid');
+    const callerPhoneQuery = getQueryParam('callerPhone');
+    const isWebQuery = getQueryParam('isWeb');
+
+    const isWebCall = isWebQuery === 'true' || tenantIdQuery === 'web-tenant';
 
     let tenantId = tenantIdQuery;
     const agentId = agentIdQuery;
     const callSid = callSidQuery || `call-${Date.now()}`;
-    const rawPhone = decodeURIComponent(callerPhoneQuery || '');
-    const callerPhone = rawPhone && rawPhone !== 'Unknown' ? rawPhone : '+1 (Web Voice Call)';
+    const rawPhone = decodeURIComponent(callerPhoneQuery);
+    const callerPhone = isWebCall
+      ? '+1 (Web Voice Call)'
+      : rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== ''
+        ? rawPhone
+        : '+1 (Inbound Phone Call)';
 
-    console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}`);
+    console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}, CallerPhone: ${callerPhone}`);
 
     let streamSid = '';
     let callRecordId = '';
@@ -132,7 +152,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let deepgramLive: any = null;
     let llmCancellation = { cancelled: false };
 
-    const isWebCall = tenantId === 'web-tenant' || callerPhone.includes('Web Browser');
     const dgStream = this.deepgramService.createDeepgramLiveStream(isWebCall);
     if (dgStream) {
       deepgramLive = dgStream;
