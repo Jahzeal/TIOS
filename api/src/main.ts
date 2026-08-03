@@ -7,10 +7,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: true,
+    origin: (requestOrigin, callback) => callback(null, requestOrigin || '*'),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
+    allowedHeaders: '*',
+    exposedHeaders: '*',
   });
   app.useWebSocketAdapter(new WsAdapter(app));
 
