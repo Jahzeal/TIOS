@@ -9,8 +9,12 @@ interface ApiPayment {
   tenantName: string;
   amount: number;
   phone: string;
+  inquiredService?: string;
+  callId?: string;
+  leadId?: string;
   status: string;
   link: string;
+  notes?: string;
   stripeSessionId?: string | null;
   createdAt: string;
 }
@@ -32,7 +36,7 @@ interface PaginationMeta {
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<ApiPayment[]>([]);
   const [tenants, setTenants] = useState<TenantItem[]>([]);
-  const [filter, setFilter] = useState<"ALL" | "PENDING" | "PAID" | "FAILED">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "PENDING_QUOTE" | "SMS_SENT" | "PAID">("ALL");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -47,12 +51,14 @@ export default function PaymentsPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
+  const [sendingSmsId, setSendingSmsId] = useState<string | null>(null);
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTenantName, setSelectedTenantName] = useState("");
-  const [amount, setAmount] = useState(25);
+  const [inquiredService, setInquiredService] = useState("Utility Service Setup");
+  const [amount, setAmount] = useState(250);
   const [phone, setPhone] = useState("+1 (555) 888-9999");
   const [sentSuccess, setSentSuccess] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -149,6 +155,29 @@ export default function PaymentsPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleSendSmsLink = async (id: string) => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+    try {
+      setSendingSmsId(id);
+      const res = await fetch(`${API_BASE_URL}/payments/send-sms/${id}`, {
+        method: "POST",
+      });
+
+      if (res.ok) {
+        setPayments((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, status: "SMS_SENT" } : p)),
+        );
+        setSentSuccess(true);
+        setTimeout(() => setSentSuccess(false), 4000);
+      }
+    } catch (err) {
+      console.warn("Failed to send payment SMS link:", err);
+    } finally {
+      setSendingSmsId(null);
+    }
+  };
+
   const handleGenerateLink = async (e: React.FormEvent) => {
     e.preventDefault();
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -159,8 +188,10 @@ export default function PaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tenantName: selectedTenantName || "Default Tenant",
+          inquiredService: inquiredService || "Utility Service Setup",
           amount: Number(amount),
           phone: phone,
+          status: "PENDING_QUOTE",
         }),
       });
 
@@ -198,13 +229,16 @@ export default function PaymentsPage() {
     }
   };
 
+  const paidCount = payments.filter((p) => p.status === "PAID").length;
+  const totalPaidRevenue = payments.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.amount, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Stripe Payments & SMS Checkout Links</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Inquiry-to-Payment Conversion Center</h1>
           <p className="text-xs text-slate-400">
-            Real-time Stripe Checkout URL generation, SMS dispatch to callers, and automated webhook status reflection.
+            Real-time tracking of prospective caller inquiries, SMS checkout links, and converted payments.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -216,14 +250,14 @@ export default function PaymentsPage() {
             }`}
           >
             <Activity className="h-3 w-3 animate-pulse" />
-            <span>{isLive ? `${meta.total} Payments Processed` : "API Offline (0 Payments)"}</span>
+            <span>{isLive ? `${meta.total} Invoices & Quotes` : "API Offline (0 Invoices)"}</span>
           </span>
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-all shadow-md inline-flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
-            <span>Generate Deposit Link & Send SMS</span>
+            <span>+ Create Pending Quote / Invoice</span>
           </button>
         </div>
       </div>
@@ -235,6 +269,24 @@ export default function PaymentsPage() {
         </div>
       )}
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-slate-400">Total Converted Revenue</p>
+          <p className="text-2xl font-bold text-emerald-400 mt-1">${totalPaidRevenue.toFixed(2)}</p>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-slate-400">Active Inquiries / Pending Quotes</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1">
+            {payments.filter((p) => p.status === "PENDING_QUOTE" || p.status === "SMS_SENT").length}
+          </p>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-slate-400">Converted Clients</p>
+          <p className="text-2xl font-bold text-indigo-400 mt-1">{paidCount} Paid Accounts</p>
+        </div>
+      </div>
+
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
         <div className="relative w-full sm:w-80">
@@ -243,23 +295,29 @@ export default function PaymentsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search phone, link, session ID, or tenant..."
+            placeholder="Search phone, service, session ID, or tenant..."
             className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
           />
         </div>
 
         <div className="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto">
-          {(["ALL", "PENDING", "PAID", "FAILED"] as const).map((f) => (
+          {(["ALL", "PENDING_QUOTE", "SMS_SENT", "PAID"] as const).map((f) => (
             <button
               key={f}
               onClick={() => handleFilterChange(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 filter === f
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800"
               }`}
             >
-              {f}
+              {f === "ALL"
+                ? "All Quotes"
+                : f === "PENDING_QUOTE"
+                ? "Pending Quotes"
+                : f === "SMS_SENT"
+                ? "SMS Sent"
+                : "Paid / Converted"}
             </button>
           ))}
         </div>
@@ -271,12 +329,12 @@ export default function PaymentsPage() {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-slate-400 uppercase text-[11px] font-semibold tracking-wider border-b border-slate-800">
               <tr>
-                <th className="py-3.5 px-4">Tenant</th>
-                <th className="py-3.5 px-4">Recipient Phone</th>
-                <th className="py-3.5 px-4">Amount</th>
+                <th className="py-3.5 px-4">Caller / Recipient</th>
+                <th className="py-3.5 px-4">Inquired Service Package</th>
+                <th className="py-3.5 px-4">Quote Amount</th>
                 <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Stripe Checkout Link</th>
-                <th className="py-3.5 px-4">Simulate Webhook</th>
+                <th className="py-3.5 px-4">SMS & Checkout Actions</th>
+                <th className="py-3.5 px-4">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -291,20 +349,27 @@ export default function PaymentsPage() {
               ) : payments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500 text-xs">
-                    No payment deposit links found in database.
+                    No pending quotes or payment records found.
                   </td>
                 </tr>
               ) : (
                 payments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-4 px-4 font-semibold text-white">{p.tenantName || "Default Tenant"}</td>
-                    <td className="py-4 px-4 text-slate-300 font-mono text-xs">{p.phone}</td>
+                    <td className="py-4 px-4">
+                      <div className="font-semibold text-white">{p.phone}</div>
+                      <div className="text-xs text-slate-400">{p.tenantName || "Hive Business"}</div>
+                    </td>
+                    <td className="py-4 px-4 font-medium text-slate-200">
+                      {p.inquiredService || "Utility Service Setup"}
+                    </td>
                     <td className="py-4 px-4 font-bold text-white">${Number(p.amount).toFixed(2)}</td>
                     <td className="py-4 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           p.status === "PAID"
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : p.status === "SMS_SENT"
+                            ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
                             : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                         }`}
                       >
@@ -313,10 +378,14 @@ export default function PaymentsPage() {
                     </td>
                     <td className="py-4 px-4 text-xs font-mono text-indigo-400">
                       <div className="flex items-center space-x-2">
-                        <a href={p.link} target="_blank" rel="noreferrer" className="hover:underline flex items-center">
-                          <span>{p.link ? p.link.slice(0, 30) : "N/A"}...</span>
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
+                        <button
+                          disabled={sendingSmsId === p.id}
+                          onClick={() => handleSendSmsLink(p.id)}
+                          className="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-semibold inline-flex items-center space-x-1 transition-all disabled:opacity-50"
+                        >
+                          <Send className="h-3 w-3" />
+                          <span>{sendingSmsId === p.id ? "Sending..." : "Send SMS Link"}</span>
+                        </button>
                         <button
                           onClick={() => handleCopyLink(p.id, p.link)}
                           title="Copy Checkout Link"
@@ -331,7 +400,7 @@ export default function PaymentsPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      {p.status === "PENDING" && (
+                      {p.status !== "PAID" && (
                         <button
                           disabled={simulatingId === p.id}
                           onClick={() => handleSimulateWebhookPayment(p.id)}

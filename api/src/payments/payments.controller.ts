@@ -28,6 +28,11 @@ export class PaymentsController {
     return this.paymentsService.createCheckoutLink(body);
   }
 
+  @Post('send-sms/:id')
+  sendPaymentSms(@Param('id') id: string) {
+    return this.paymentsService.sendPaymentSms(id);
+  }
+
   @Post('simulate-webhook/:id')
   simulateWebhook(@Param('id') id: string) {
     return this.paymentsService.simulateWebhook(id);

@@ -132,10 +132,15 @@ model Payment {
   tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   amount              Float
   phone               String
+  inquiredService     String?   @default("Utility Service Setup")
+  callId              String?
+  leadId              String?
   link                String    @db.Text
   stripeSessionId     String?   @unique
   stripePaymentIntent String?
-  status              String    @default("PENDING") // PENDING, PAID, FAILED
+  status              String    @default("PENDING_QUOTE") // PENDING_QUOTE, SMS_SENT, PAID, CANCELLED
+  scheduledSmsAt      DateTime?
+  notes               String?   @db.Text
   createdAt           DateTime  @default(now())
   updatedAt           DateTime? @updatedAt
 }

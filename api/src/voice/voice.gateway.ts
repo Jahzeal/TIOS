@@ -26,6 +26,8 @@ function containsGoodbye(text: string): boolean {
   return keywords.some((kw) => normalized.includes(kw));
 }
 
+import { PaymentsService } from '../payments/payments.service';
+
 @WebSocketGateway({ path: '/stream' })
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -33,6 +35,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(OpenAiService) private readonly openAiService: OpenAiService,
     @Inject(DeepgramService) private readonly deepgramService: DeepgramService,
     @Inject(ElevenLabsService) private readonly elevenLabsService: ElevenLabsService,
+    @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
   ) {}
 
   async handleConnection(ws: WebSocket, req: any) {
@@ -111,7 +114,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             systemPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer caller questions accurately):\n${kbText}`;
           }
         }
-      systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
+        systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
+
+        try {
+          const activeDebt = await this.prisma.payment.findFirst({
+            where: { phone: callerPhone, status: { not: 'PAID' } },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (activeDebt) {
+            systemPrompt += `\n\n[ACCOUNT CONTEXT]: The caller has an active pending invoice/quote for "${activeDebt.inquiredService || 'Utility Service Setup'}" with an outstanding balance of $${activeDebt.amount.toFixed(2)}. Status: ${activeDebt.status}. If they ask to pay or request a payment link, inform them politely and start your response with [ACTION:SEND_PAYMENT_LINK].`;
+          }
+        } catch (e) {}
+
+        systemPrompt += `\n\nAUTOMATED PAYMENTS RULE:\nIf the caller expresses ANY intention to pay their bill, complete their service quote, or requests a payment link via SMS (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:SEND_PAYMENT_LINK]. Followed by your polite confirmation response: "I have dispatched a secure payment link directly to your mobile phone via SMS! You can click the link right now to finalize your account setup. Have a wonderful day!"`;
       }
     } catch (err) {
       console.error('[WebSocket Context] Agent query failed:', err);
@@ -248,7 +264,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 }
               }
 
-              const finalSentence = currentSentence.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+              const finalSentence = currentSentence
+                .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
+                .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
+                .trim();
               if (finalSentence && !currentToken.cancelled) {
                 if (!speechSession && (streamSid || callSid)) {
                   speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
@@ -259,13 +278,37 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
 
               if (fullResponseText.trim()) {
-                const cleanedFullText = fullResponseText.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+                const cleanedFullText = fullResponseText
+                  .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
+                  .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
+                  .trim();
                 const savedContent = currentToken.cancelled ? `${cleanedFullText}...` : cleanedFullText;
                 chatHistory.push({ role: 'assistant', content: savedContent });
                 if (isWebCall && !currentToken.cancelled) {
                   try {
                     ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
                   } catch (e) {}
+                }
+              }
+
+              if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !currentToken.cancelled) {
+                console.log(`[AI Payment Engine] LLM detected payment intent dynamically. Dispatching SMS checkout link...`);
+                try {
+                  const paymentRecord = await this.paymentsService.createCheckoutLink({
+                    tenantId: targetTenantId,
+                    amount: 250.0,
+                    phone: callerPhone,
+                    inquiredService: 'Utility Service Setup',
+                    callId: callRecordId,
+                    status: 'SMS_SENT',
+                  });
+
+                  if (paymentRecord && paymentRecord.id) {
+                    await this.paymentsService.sendPaymentSms(paymentRecord.id);
+                    console.log(`[AI Payment Engine] SMS Payment Link dispatched to ${callerPhone}: ${paymentRecord.link}`);
+                  }
+                } catch (paymentErr) {
+                  console.error('[AI Payment Engine] Failed to dispatch SMS payment link:', paymentErr);
                 }
               }
 
@@ -450,6 +493,28 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             },
           });
           console.log(`[WebSocket DB Log] Saved call record ${callRecordId} successfully.`);
+
+          // Auto-create PENDING_QUOTE for prospective inquiries if none exists
+          try {
+            const existingPayment = await this.prisma.payment.findFirst({
+              where: { phone: callerPhone, status: { in: ['PENDING_QUOTE', 'SMS_SENT', 'PAID'] } },
+            });
+
+            if (!existingPayment && callerPhone && !callerPhone.includes('Web Voice')) {
+              await this.paymentsService.createCheckoutLink({
+                tenantId: targetTenantId,
+                amount: 250.0,
+                phone: callerPhone,
+                inquiredService: 'Utility Service Setup',
+                callId: callRecordId,
+                status: 'PENDING_QUOTE',
+                notes: `Auto-captured from inquiry call summary: "${analysis.summary || 'Caller inquired about utility service options.'}"`,
+              });
+              console.log(`[Prospective Lead Engine] Logged PENDING_QUOTE for caller ${callerPhone}.`);
+            }
+          } catch (quoteErr) {
+            console.error('[Prospective Lead Engine] Failed to log pending quote:', quoteErr);
+          }
         }
       } catch (err) {
         console.error('[WebSocket DB Log] Cleanup update failed:', err);

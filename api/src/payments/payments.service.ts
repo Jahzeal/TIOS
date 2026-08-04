@@ -55,9 +55,14 @@ export class PaymentsService {
         tenantName: p.tenant?.name || 'Default Business',
         amount: p.amount,
         phone: p.phone,
+        inquiredService: p.inquiredService || 'Utility Service Setup',
+        callId: p.callId,
+        leadId: p.leadId,
         status: p.status,
         link: p.link,
         stripeSessionId: p.stripeSessionId,
+        notes: p.notes,
+        scheduledSmsAt: p.scheduledSmsAt,
         createdAt: p.createdAt,
       }));
 
@@ -89,6 +94,42 @@ export class PaymentsService {
     }
   }
 
+  async sendPaymentSms(paymentId: string) {
+    try {
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: paymentId },
+        include: { tenant: true },
+      });
+
+      if (!payment) {
+        return { success: false, message: 'Payment record not found.' };
+      }
+
+      const smsText = `Hi! Here is your secure payment link for ${payment.inquiredService || 'Utility Service Setup'} ($${payment.amount.toFixed(2)}): ${payment.link}`;
+
+      // Log SMS dispatch in database
+      await this.prisma.smsLog.create({
+        data: {
+          tenantId: payment.tenantId,
+          phone: payment.phone,
+          message: smsText,
+          status: 'SENT',
+        },
+      });
+
+      // Update payment status to SMS_SENT
+      await this.prisma.payment.update({
+        where: { id: paymentId },
+        data: { status: 'SMS_SENT' },
+      });
+
+      return { success: true, message: 'SMS payment link dispatched successfully.', link: payment.link };
+    } catch (err: any) {
+      console.error('[Payments API Error] sendPaymentSms failed:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
   async simulateWebhook(id: string) {
     try {
       await this.prisma.payment.update({
@@ -101,7 +142,17 @@ export class PaymentsService {
     }
   }
 
-  async createCheckoutLink(data: { tenantId?: string; tenantName?: string; amount: number; phone: string }) {
+  async createCheckoutLink(data: {
+    tenantId?: string;
+    tenantName?: string;
+    amount: number;
+    phone: string;
+    inquiredService?: string;
+    callId?: string;
+    leadId?: string;
+    status?: string;
+    notes?: string;
+  }) {
     let tenantId = data.tenantId;
 
     if (!tenantId && data.tenantName) {
@@ -126,7 +177,7 @@ export class PaymentsService {
               price_data: {
                 currency: 'usd',
                 product_data: {
-                  name: 'Appointment Deposit',
+                  name: data.inquiredService || 'Utility Service Setup',
                 },
                 unit_amount: Math.round(data.amount * 100),
               },
@@ -150,6 +201,8 @@ export class PaymentsService {
       checkoutUrl = `https://checkout.stripe.com/pay/${stripeSessionId}`;
     }
 
+    const paymentStatus = data.status || 'PENDING_QUOTE';
+
     if (tenantId) {
       try {
         const paymentRecord = await this.prisma.payment.create({
@@ -157,9 +210,13 @@ export class PaymentsService {
             tenantId: tenantId,
             amount: data.amount,
             phone: data.phone,
+            inquiredService: data.inquiredService || 'Utility Service Setup',
+            callId: data.callId,
+            leadId: data.leadId,
+            notes: data.notes,
             link: checkoutUrl,
             stripeSessionId: stripeSessionId,
-            status: 'PENDING',
+            status: paymentStatus,
           },
         });
         return paymentRecord;
@@ -173,9 +230,10 @@ export class PaymentsService {
       tenantId: tenantId || 'default-tenant',
       amount: data.amount,
       phone: data.phone,
+      inquiredService: data.inquiredService || 'Utility Service Setup',
       link: checkoutUrl,
       stripeSessionId: stripeSessionId,
-      status: 'PENDING',
+      status: paymentStatus,
       createdAt: new Date().toISOString(),
     };
   }
