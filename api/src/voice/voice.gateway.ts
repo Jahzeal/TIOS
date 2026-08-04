@@ -150,32 +150,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     }
 
-    if (targetAgentId) {
-      try {
-        const existingCall = await this.prisma.call.findUnique({ where: { sid: callSid } });
-        if (existingCall) {
-          dbCallRecord = existingCall;
-          if (existingCall.callerPhone && !existingCall.callerPhone.includes('Inbound Phone Call')) {
-            callerPhone = existingCall.callerPhone;
-          }
-        } else {
-          dbCallRecord = await this.prisma.call.create({
-            data: {
-              sid: callSid,
-              direction: 'INBOUND',
-              status: 'IN_PROGRESS',
-              callerPhone: callerPhone,
-              agentId: targetAgentId,
-              tenantId: targetTenantId || undefined,
-            },
-          });
-        }
-        callRecordId = dbCallRecord.id;
-        console.log(`[WebSocket DB] Call record active: ${callRecordId} (Phone: ${callerPhone})`);
-      } catch (err) {
-        console.error('[WebSocket DB] Failed to locate/create call record:', err);
-      }
-    }
+    // Defer call record creation/binding until start event arrives with true CallSid
 
     let deepgramLive: any = null;
     let llmCancellation = { cancelled: false };
@@ -437,36 +412,49 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             streamSid = data.start?.streamSid || '';
             const customParams = data.start?.customParameters || {};
             const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
-            const realTwilioSid = data.start?.callSid || customParams.callSid;
+            const trueSid = data.start?.callSid || customParams.callSid || callSid;
 
-            if (realTwilioSid) {
+            if (targetAgentId) {
               try {
-                const preCreatedCall = await this.prisma.call.findUnique({ where: { sid: realTwilioSid } });
-                if (preCreatedCall) {
-                  // If a temporary placeholder call was created on WS connect, remove it
-                  if (callRecordId && callRecordId !== preCreatedCall.id) {
-                    await this.prisma.call.delete({ where: { id: callRecordId } }).catch(() => {});
-                  }
-                  dbCallRecord = preCreatedCall;
-                  callRecordId = preCreatedCall.id;
-                  if (preCreatedCall.callerPhone) {
-                    callerPhone = preCreatedCall.callerPhone;
-                  }
+                let existingCall = await this.prisma.call.findUnique({ where: { sid: trueSid } });
+                if (!existingCall && callSid && callSid !== trueSid) {
+                  existingCall = await this.prisma.call.findUnique({ where: { sid: callSid } });
                 }
-              } catch (e) {}
-            }
 
-            if (paramPhone && paramPhone !== 'Unknown' && paramPhone !== 'undefined' && paramPhone !== '') {
-              callerPhone = paramPhone;
-              console.log(`[Twilio Start] Updated callerPhone from customParameters: ${callerPhone}`);
-              if (callRecordId) {
-                this.prisma.call.update({
-                  where: { id: callRecordId },
-                  data: { callerPhone: callerPhone },
-                }).catch((e) => console.error('[Twilio Start] Failed to update call callerPhone:', e));
+                if (existingCall) {
+                  dbCallRecord = existingCall;
+                  callRecordId = existingCall.id;
+                  if (existingCall.callerPhone) {
+                    callerPhone = existingCall.callerPhone;
+                  }
+                  if (paramPhone && (!callerPhone || callerPhone.includes('Inbound Phone Call'))) {
+                    callerPhone = paramPhone;
+                    await this.prisma.call.update({
+                      where: { id: callRecordId },
+                      data: { callerPhone: paramPhone },
+                    }).catch(() => {});
+                  }
+                } else {
+                  const finalPhone = paramPhone || callerPhone || '+1 (Inbound Phone Call)';
+                  dbCallRecord = await this.prisma.call.create({
+                    data: {
+                      sid: trueSid,
+                      direction: 'INBOUND',
+                      status: 'IN_PROGRESS',
+                      callerPhone: finalPhone,
+                      agentId: targetAgentId,
+                      tenantId: targetTenantId || undefined,
+                    },
+                  });
+                  callRecordId = dbCallRecord.id;
+                  callerPhone = finalPhone;
+                }
+              } catch (err) {
+                console.error('[VoiceGateway Start] Call binding failed:', err);
               }
             }
-            console.log(`[Twilio Start] Media stream started. StreamSid: ${streamSid}, CallerPhone: ${callerPhone}`);
+
+            console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, Phone: ${callerPhone}`);
             triggerGreeting();
             break;
           case 'media':

@@ -99,9 +99,9 @@ export class SpeechSession {
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.warn(`[TTS Error] ElevenLabs status ${response.status} (${response.statusText}):`, errorText);
-        console.log('[TTS Engine] Automatically falling back to Deepgram Aura TTS...');
+        // const errorText = await response.text();
+        // console.warn(`[TTS Error] ElevenLabs status ${response.status} (${response.statusText}):`, errorText);
+        console.log('[TTS Engine] Using Deepgram Aura TTS...');
         await this.fallbackDeepgramTts(text, cancellation, epoch);
         return;
       }
