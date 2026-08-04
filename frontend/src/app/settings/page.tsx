@@ -30,6 +30,10 @@ export default function SettingsPage() {
   const [agentName, setAgentName] = useState<string>("");
   const [voiceId, setVoiceId] = useState<string>("");
   const [callbackDelayHours, setCallbackDelayHours] = useState<number>(24);
+  const [callbackDelayMinutes, setCallbackDelayMinutes] = useState<number>(1440);
+  const [customHoursInput, setCustomHoursInput] = useState<number>(1);
+  const [customMinsInput, setCustomMinsInput] = useState<number>(30);
+  const [isCustomSelected, setIsCustomSelected] = useState<boolean>(false);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -100,7 +104,12 @@ export default function SettingsPage() {
       setAgentName(agent.name);
       setVoiceId(agent.voiceId || "21m00Tcm4TlvDq8ikWAM");
       setSystemPrompt(agent.prompt || "");
-      setCallbackDelayHours((agent as any).callbackDelayHours || 24);
+      const totalMins = (agent as any).callbackDelayMinutes || ((agent as any).callbackDelayHours ? (agent as any).callbackDelayHours * 60 : 1440);
+      setCallbackDelayMinutes(totalMins);
+      setCallbackDelayHours(Math.floor(totalMins / 60) || 1);
+      setCustomHoursInput(Math.floor(totalMins / 60));
+      setCustomMinsInput(totalMins % 60);
+      setIsCustomSelected(![15, 30, 60, 240, 720, 1440, 2880].includes(totalMins));
     }
   };
 
@@ -117,7 +126,8 @@ export default function SettingsPage() {
           name: agentName,
           prompt: systemPrompt,
           voiceId: voiceId,
-          callbackDelayHours: Number(callbackDelayHours),
+          callbackDelayHours: Math.ceil(callbackDelayMinutes / 60),
+          callbackDelayMinutes: Number(callbackDelayMinutes),
         }),
       });
 
@@ -294,36 +304,67 @@ export default function SettingsPage() {
                   </label>
                   <div className="space-y-2">
                     <select
-                      value={[1, 4, 12, 24, 48, 72].includes(callbackDelayHours) ? callbackDelayHours : -1}
+                      value={isCustomSelected || ![15, 30, 60, 240, 720, 1440, 2880].includes(callbackDelayMinutes) ? -1 : callbackDelayMinutes}
                       onChange={(e) => {
                         const val = Number(e.target.value);
-                        if (val !== -1) {
-                          setCallbackDelayHours(val);
+                        if (val === -1) {
+                          setIsCustomSelected(true);
+                          const total = customHoursInput * 60 + customMinsInput;
+                          setCallbackDelayMinutes(total > 0 ? total : 1);
+                        } else {
+                          setIsCustomSelected(false);
+                          setCallbackDelayMinutes(val);
+                          setCallbackDelayHours(Math.ceil(val / 60));
                         }
                       }}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
                     >
-                      <option value={1}>After 1 Hour</option>
-                      <option value={4}>After 4 Hours</option>
-                      <option value={12}>After 12 Hours</option>
-                      <option value={24}>After 24 Hours (1 Day)</option>
-                      <option value={48}>After 48 Hours (2 Days)</option>
-                      <option value={72}>After 72 Hours (3 Days)</option>
-                      <option value={-1}>Custom Hours...</option>
+                      <option value={15}>After 15 Minutes</option>
+                      <option value={30}>After 30 Minutes</option>
+                      <option value={60}>After 1 Hour (60 mins)</option>
+                      <option value={240}>After 4 Hours</option>
+                      <option value={720}>After 12 Hours</option>
+                      <option value={1440}>After 24 Hours (1 Day)</option>
+                      <option value={2880}>After 48 Hours (2 Days)</option>
+                      <option value={-1}>Custom Hours &amp; Minutes...</option>
                     </select>
 
-                    {![1, 4, 12, 24, 48, 72].includes(callbackDelayHours) && (
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={720}
-                          value={callbackDelayHours}
-                          onChange={(e) => setCallbackDelayHours(Math.max(1, Number(e.target.value)))}
-                          placeholder="Type custom hours..."
-                          className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2.5 text-xs text-white focus:outline-none font-mono"
-                        />
-                        <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Hours</span>
+                    {(isCustomSelected || ![15, 30, 60, 240, 720, 1440, 2880].includes(callbackDelayMinutes)) && (
+                      <div className="flex items-center space-x-2 pt-1">
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-slate-400 mb-1 font-semibold">Hours</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={720}
+                            value={customHoursInput}
+                            onChange={(e) => {
+                              const hrs = Math.max(0, Number(e.target.value));
+                              setCustomHoursInput(hrs);
+                              const total = hrs * 60 + customMinsInput;
+                              setCallbackDelayMinutes(total > 0 ? total : 1);
+                            }}
+                            placeholder="Hours"
+                            className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-slate-400 mb-1 font-semibold">Minutes</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={59}
+                            value={customMinsInput}
+                            onChange={(e) => {
+                              const mins = Math.max(0, Math.min(59, Number(e.target.value)));
+                              setCustomMinsInput(mins);
+                              const total = customHoursInput * 60 + mins;
+                              setCallbackDelayMinutes(total > 0 ? total : 1);
+                            }}
+                            placeholder="Mins"
+                            className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
