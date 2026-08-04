@@ -36,4 +36,28 @@ export class DeepgramService {
       return null;
     }
   }
+
+  public async generateTtsAudio(text: string): Promise<Buffer | null> {
+    if (!config.deepgramApiKey) return null;
+    try {
+      const response = await fetch('https://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mulaw&sample_rate=8000', {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${config.deepgramApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      } else {
+        console.warn(`[Deepgram TTS] HTTP ${response.status} ${response.statusText}`);
+      }
+    } catch (err) {
+      console.error('[Deepgram TTS Error]:', err);
+    }
+    return null;
+  }
 }

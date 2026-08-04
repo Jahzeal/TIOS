@@ -69,7 +69,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const agentId = agentIdQuery;
     const callSid = callSidQuery || `call-${Date.now()}`;
     const rawPhone = decodeURIComponent(callerPhoneQuery);
-    const callerPhone = isWebCall
+    let callerPhone = isWebCall
       ? '+1 (Web Voice Call)'
       : rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== ''
         ? rawPhone
@@ -131,7 +131,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           }
         } catch (e) {}
 
-        systemPrompt += `\n\nAUTOMATED PAYMENTS RULE:\nIf the caller expresses ANY intention to pay their bill, complete their service quote, or requests a payment link via SMS (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:SEND_PAYMENT_LINK]. Followed by your polite confirmation response: "I have dispatched a secure payment link directly to your mobile phone via SMS! You can click the link right now to finalize your account setup. Have a wonderful day!"`;
+        systemPrompt += `\n\nAUTOMATED PAYMENTS RULE:\nIf the caller expresses ANY intention to pay their bill, complete their service quote, or requests a payment link via SMS (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:SEND_PAYMENT_LINK]. Followed by your confirmation: "Done! Check your text for the payment link."`;
+        systemPrompt += `\n\nSTRICT CONCISENESS RULE:\nKeep every response under 1 short sentence (maximum 5-10 words). Be ultra-direct and punchy. No long intros or filler phrases!`;
       }
     } catch (err) {
       console.error('[WebSocket Context] Agent query failed:', err);
@@ -423,7 +424,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             break;
           case 'start':
             streamSid = data.start?.streamSid || '';
-            console.log(`[Twilio Start] Media stream started. StreamSid: ${streamSid}`);
+            const customParams = data.start?.customParameters || {};
+            const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
+            if (paramPhone && paramPhone !== 'Unknown' && paramPhone !== 'undefined' && paramPhone !== '') {
+              callerPhone = paramPhone;
+              console.log(`[Twilio Start] Updated callerPhone from customParameters: ${callerPhone}`);
+              if (callRecordId) {
+                this.prisma.call.update({
+                  where: { id: callRecordId },
+                  data: { callerPhone: callerPhone },
+                }).catch((e) => console.error('[Twilio Start] Failed to update call callerPhone:', e));
+              }
+            }
+            console.log(`[Twilio Start] Media stream started. StreamSid: ${streamSid}, CallerPhone: ${callerPhone}`);
             triggerGreeting();
             break;
           case 'media':

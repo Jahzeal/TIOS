@@ -95,7 +95,9 @@ export class SpeechSession {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[TTS Error] ElevenLabs status ${response.status} (${response.statusText}):`, errorText);
+        console.warn(`[TTS Error] ElevenLabs status ${response.status} (${response.statusText}):`, errorText);
+        console.log('[TTS Engine] Automatically falling back to Deepgram Aura TTS...');
+        await this.fallbackDeepgramTts(text, cancellation, epoch);
         return;
       }
 
@@ -135,6 +137,52 @@ export class SpeechSession {
       }
     } catch (err) {
       console.error('[TTS] ElevenLabs audio playback error:', err);
+      await this.fallbackDeepgramTts(text, cancellation, epoch);
+    }
+  }
+
+  private async fallbackDeepgramTts(text: string, cancellation: { cancelled: boolean }, epoch: number) {
+    if (!config.deepgramApiKey) {
+      console.warn('[Deepgram TTS Fallback] DEEPGRAM_API_KEY is missing.');
+      return;
+    }
+    console.log(`[Deepgram Aura TTS] Generating audio for: "${text}"`);
+    try {
+      const dgRes = await fetch('https://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=mulaw&sample_rate=8000', {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${config.deepgramApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (dgRes.ok) {
+        const arrayBuf = await dgRes.arrayBuffer();
+        const audioBuf = Buffer.from(arrayBuf);
+
+        if (cancellation.cancelled || epoch !== this.currentEpoch) return;
+
+        const CHUNK_SIZE = 1600;
+        for (let offset = 0; offset < audioBuf.length; offset += CHUNK_SIZE) {
+          if (cancellation.cancelled || epoch !== this.currentEpoch) break;
+          const chunk = audioBuf.subarray(offset, offset + CHUNK_SIZE);
+          const base64Audio = chunk.toString('base64');
+          this.ws.send(
+            JSON.stringify({
+              event: 'media',
+              streamSid: this.streamSid,
+              media: { payload: base64Audio },
+            }),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } else {
+        const errBody = await dgRes.text();
+        console.error(`[Deepgram TTS Fallback Failed] HTTP ${dgRes.status}:`, errBody);
+      }
+    } catch (err) {
+      console.error('[Deepgram TTS Fallback Error]:', err);
     }
   }
 

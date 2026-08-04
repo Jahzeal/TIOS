@@ -45,7 +45,7 @@ export class VoiceController {
     const xmlWsUrl = rawWsUrl.replace(/&/g, '&amp;');
     const xmlRedirect = `/voice/post-stream?callSid=${callSid}`.replace(/&/g, '&amp;');
 
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="${xmlWsUrl}" /></Connect><Redirect>${xmlRedirect}</Redirect></Response>`.trim();
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><Stream url="${xmlWsUrl}"><Parameter name="callerPhone" value="${fromPhone}" /><Parameter name="tenantId" value="${tenant.id}" /><Parameter name="agentId" value="${agent.id}" /><Parameter name="callSid" value="${callSid}" /></Stream></Connect><Redirect>${xmlRedirect}</Redirect></Response>`.trim();
 
     res.setHeader('Content-Type', 'text/xml');
     return res.send(twiml);
