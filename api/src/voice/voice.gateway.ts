@@ -59,7 +59,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const callerPhoneQuery = getQueryParam('callerPhone');
     const isWebQuery = getQueryParam('isWeb');
 
-    const isWebCall = isWebQuery === 'true' || tenantIdQuery === 'web-tenant';
+    const isWebCall =
+      isWebQuery === 'true' ||
+      tenantIdQuery === 'web-tenant' ||
+      callerPhoneQuery.toLowerCase().includes('web') ||
+      decodeURIComponent(callerPhoneQuery).toLowerCase().includes('web');
 
     let tenantId = tenantIdQuery;
     const agentId = agentIdQuery;
