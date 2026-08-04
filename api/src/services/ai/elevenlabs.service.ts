@@ -18,7 +18,12 @@ export class SpeechSession {
   }
 
   public enqueueSentence(sentence: string) {
-    this.sentenceQueue.push(sentence);
+    const clean = (sentence || '')
+      .replace(/\[ACTION:[A_Z0-9_]+\]/gi, '')
+      .replace(/action\s+(send|request)\s+\w+/gi, '')
+      .trim();
+    if (!clean) return;
+    this.sentenceQueue.push(clean);
     this.processQueue();
   }
 

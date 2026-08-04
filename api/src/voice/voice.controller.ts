@@ -33,6 +33,15 @@ export class VoiceController {
       return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>System error. Unable to locate receptionist.</Say><Hangup/></Response>`.trim());
     }
 
+    if (callSid && fromPhone) {
+      await this.voiceService.createInitialCallRecord({
+        sid: callSid,
+        callerPhone: fromPhone,
+        tenantId: tenant.id,
+        agentId: agent.id,
+      });
+    }
+
     if (await this.voiceService.isRateLimited(fromPhone, tenant.id)) {
       console.log(`[Rate Limiting] Caller ${fromPhone} is rate limited.`);
       res.setHeader('Content-Type', 'text/xml');

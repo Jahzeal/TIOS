@@ -333,8 +333,8 @@ export default function PaymentsPage() {
                 <th className="py-3.5 px-4">Inquired Service Package</th>
                 <th className="py-3.5 px-4">Quote Amount</th>
                 <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">SMS & Checkout Actions</th>
-                <th className="py-3.5 px-4">Actions</th>
+                <th className="py-3.5 px-4">Date &amp; Time</th>
+                <th className="py-3.5 px-4">SMS &amp; Checkout Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -376,6 +376,24 @@ export default function PaymentsPage() {
                         {p.status}
                       </span>
                     </td>
+                    <td className="py-4 px-4 text-xs text-slate-400 whitespace-nowrap">
+                      {p.createdAt ? (
+                        <>
+                          {new Date(p.createdAt).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}{" "}
+                          •{" "}
+                          {new Date(p.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="py-4 px-4 text-xs font-mono text-indigo-400">
                       <div className="flex items-center space-x-2">
                         <button
@@ -398,18 +416,6 @@ export default function PaymentsPage() {
                           )}
                         </button>
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      {p.status !== "PAID" && (
-                        <button
-                          disabled={simulatingId === p.id}
-                          onClick={() => handleSimulateWebhookPayment(p.id)}
-                          className="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold inline-flex items-center space-x-1 disabled:opacity-50"
-                        >
-                          <RefreshCw className={`h-3 w-3 ${simulatingId === p.id ? "animate-spin" : ""}`} />
-                          <span>{simulatingId === p.id ? "Simulating..." : "Simulate Paid Webhook"}</span>
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ))

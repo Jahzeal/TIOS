@@ -111,4 +111,25 @@ export class VoiceService {
 
     return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for calling. Goodbye.</Say><Hangup/></Response>`.trim();
   }
+
+  public async createInitialCallRecord(data: { sid: string; callerPhone: string; tenantId: string; agentId: string }) {
+    if (!data.sid) return null;
+    try {
+      return await this.prisma.call.upsert({
+        where: { sid: data.sid },
+        update: { callerPhone: data.callerPhone },
+        create: {
+          sid: data.sid,
+          direction: 'INBOUND',
+          status: 'IN_PROGRESS',
+          callerPhone: data.callerPhone,
+          tenantId: data.tenantId,
+          agentId: data.agentId,
+        },
+      });
+    } catch (err) {
+      console.error('[VoiceService] Failed to create initial call record:', err);
+      return null;
+    }
+  }
 }

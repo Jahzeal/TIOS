@@ -131,8 +131,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           }
         } catch (e) {}
 
-        systemPrompt += `\n\nAUTOMATED PAYMENTS RULE:\nIf the caller expresses ANY intention to pay their bill, complete their service quote, or requests a payment link via SMS (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:SEND_PAYMENT_LINK]. Followed by your confirmation: "Done! Check your text for the payment link."`;
-        systemPrompt += `\n\nSTRICT CONCISENESS RULE:\nKeep every response under 1 short sentence (maximum 5-10 words). Be ultra-direct and punchy. No long intros or filler phrases!`;
+        systemPrompt += `\n\nCONCISENESS & NATURAL FLOW RULE:\nKeep responses concise, warm, and helpful (1 to 2 sentences max, around 15-25 words). Answer questions directly without long filler introductions or unnecessary preamble.`;
       }
     } catch (err) {
       console.error('[WebSocket Context] Agent query failed:', err);
@@ -153,20 +152,28 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (targetAgentId) {
       try {
-        dbCallRecord = await this.prisma.call.create({
-          data: {
-            sid: callSid,
-            direction: 'INBOUND',
-            status: 'IN_PROGRESS',
-            callerPhone: callerPhone,
-            agentId: targetAgentId,
-            tenantId: targetTenantId || undefined,
-          },
-        });
+        const existingCall = await this.prisma.call.findUnique({ where: { sid: callSid } });
+        if (existingCall) {
+          dbCallRecord = existingCall;
+          if (existingCall.callerPhone && !existingCall.callerPhone.includes('Inbound Phone Call')) {
+            callerPhone = existingCall.callerPhone;
+          }
+        } else {
+          dbCallRecord = await this.prisma.call.create({
+            data: {
+              sid: callSid,
+              direction: 'INBOUND',
+              status: 'IN_PROGRESS',
+              callerPhone: callerPhone,
+              agentId: targetAgentId,
+              tenantId: targetTenantId || undefined,
+            },
+          });
+        }
         callRecordId = dbCallRecord.id;
-        console.log(`[WebSocket DB] Call record created successfully: ${callRecordId}`);
+        console.log(`[WebSocket DB] Call record active: ${callRecordId} (Phone: ${callerPhone})`);
       } catch (err) {
-        console.error('[WebSocket DB] Failed to create call record:', err);
+        console.error('[WebSocket DB] Failed to locate/create call record:', err);
       }
     }
 
@@ -257,7 +264,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   const sentence = currentSentence.substring(0, endPos).trim();
                   currentSentence = currentSentence.substring(endPos);
 
-                  const cleanSentence = sentence.replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '').trim();
+                  const cleanSentence = sentence
+                    .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
+                    .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
+                    .replace(/\[ACTION:[A_Z0-9_]+\]/gi, '')
+                    .trim();
                   if (cleanSentence && !currentToken.cancelled) {
                     if (!speechSession && (streamSid || callSid)) {
                       speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
@@ -520,17 +531,30 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             const quoteAmount = (analysis as any).quotedAmount;
             const serviceName = (analysis as any).inquiredService;
 
-            if (!existingPayment && callerPhone && !callerPhone.includes('Web Voice') && typeof quoteAmount === 'number' && quoteAmount > 0) {
-              await this.paymentsService.createCheckoutLink({
-                tenantId: targetTenantId,
-                amount: quoteAmount,
-                phone: callerPhone,
-                inquiredService: serviceName || 'Service Inquiry',
-                callId: callRecordId,
-                status: 'PENDING_QUOTE',
-                notes: `Auto-captured from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
-              });
-              console.log(`[Prospective Lead Engine] Logged PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
+            if (callerPhone && typeof quoteAmount === 'number' && quoteAmount > 0) {
+              if (existingPayment && existingPayment.status === 'PENDING_QUOTE') {
+                await this.prisma.payment.update({
+                  where: { id: existingPayment.id },
+                  data: {
+                    amount: quoteAmount,
+                    inquiredService: serviceName || 'Service Inquiry',
+                    callId: callRecordId,
+                    notes: `Updated from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
+                  },
+                });
+                console.log(`[Prospective Lead Engine] Updated PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
+              } else if (!existingPayment) {
+                await this.paymentsService.createCheckoutLink({
+                  tenantId: targetTenantId,
+                  amount: quoteAmount,
+                  phone: callerPhone,
+                  inquiredService: serviceName || 'Service Inquiry',
+                  callId: callRecordId,
+                  status: 'PENDING_QUOTE',
+                  notes: `Auto-captured from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
+                });
+                console.log(`[Prospective Lead Engine] Logged new PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
+              }
             }
           } catch (quoteErr) {
             console.error('[Prospective Lead Engine] Failed to log pending quote:', quoteErr);
