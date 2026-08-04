@@ -15,8 +15,6 @@ export class DeepgramService {
       if (isWeb) {
         return deepgram.listen.live({
           model: 'nova-2',
-          encoding: 'opus',
-          container: 'webm',
           smart_format: true,
           interim_results: true,
           punctuate: true,
