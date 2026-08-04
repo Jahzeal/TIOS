@@ -422,7 +422,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     };
 
-    ws.on('message', (message: string) => {
+    ws.on('message', async (message: string) => {
       try {
         const data = JSON.parse(message);
         if (data.event !== 'media') {
@@ -437,6 +437,25 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             streamSid = data.start?.streamSid || '';
             const customParams = data.start?.customParameters || {};
             const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
+            const realTwilioSid = data.start?.callSid || customParams.callSid;
+
+            if (realTwilioSid) {
+              try {
+                const preCreatedCall = await this.prisma.call.findUnique({ where: { sid: realTwilioSid } });
+                if (preCreatedCall) {
+                  // If a temporary placeholder call was created on WS connect, remove it
+                  if (callRecordId && callRecordId !== preCreatedCall.id) {
+                    await this.prisma.call.delete({ where: { id: callRecordId } }).catch(() => {});
+                  }
+                  dbCallRecord = preCreatedCall;
+                  callRecordId = preCreatedCall.id;
+                  if (preCreatedCall.callerPhone) {
+                    callerPhone = preCreatedCall.callerPhone;
+                  }
+                }
+              } catch (e) {}
+            }
+
             if (paramPhone && paramPhone !== 'Unknown' && paramPhone !== 'undefined' && paramPhone !== '') {
               callerPhone = paramPhone;
               console.log(`[Twilio Start] Updated callerPhone from customParameters: ${callerPhone}`);
