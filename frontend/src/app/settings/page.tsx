@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [systemPrompt, setSystemPrompt] = useState<string>("");
   const [agentName, setAgentName] = useState<string>("");
   const [voiceId, setVoiceId] = useState<string>("");
+  const [callbackDelayHours, setCallbackDelayHours] = useState<number>(24);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +58,7 @@ export default function SettingsPage() {
             setAgentName(initial.name);
             setVoiceId(initial.voiceId || "21m00Tcm4TlvDq8ikWAM");
             setSystemPrompt(initial.prompt || "");
+            setCallbackDelayHours(initial.callbackDelayHours || 24);
 
             setChatHistory([
               {
@@ -72,6 +74,7 @@ export default function SettingsPage() {
             setAgentName("");
             setVoiceId("");
             setSystemPrompt("");
+            setCallbackDelayHours(24);
             setIsLive(true);
           }
         } else {
@@ -97,6 +100,7 @@ export default function SettingsPage() {
       setAgentName(agent.name);
       setVoiceId(agent.voiceId || "21m00Tcm4TlvDq8ikWAM");
       setSystemPrompt(agent.prompt || "");
+      setCallbackDelayHours((agent as any).callbackDelayHours || 24);
     }
   };
 
@@ -113,6 +117,7 @@ export default function SettingsPage() {
           name: agentName,
           prompt: systemPrompt,
           voiceId: voiceId,
+          callbackDelayHours: Number(callbackDelayHours),
         }),
       });
 
@@ -260,7 +265,7 @@ export default function SettingsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Agent Name
@@ -282,6 +287,46 @@ export default function SettingsPage() {
                     onChange={(e) => setVoiceId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Automated Callback Timing
+                  </label>
+                  <div className="space-y-2">
+                    <select
+                      value={[1, 4, 12, 24, 48, 72].includes(callbackDelayHours) ? callbackDelayHours : -1}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val !== -1) {
+                          setCallbackDelayHours(val);
+                        }
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+                    >
+                      <option value={1}>After 1 Hour</option>
+                      <option value={4}>After 4 Hours</option>
+                      <option value={12}>After 12 Hours</option>
+                      <option value={24}>After 24 Hours (1 Day)</option>
+                      <option value={48}>After 48 Hours (2 Days)</option>
+                      <option value={72}>After 72 Hours (3 Days)</option>
+                      <option value={-1}>Custom Hours...</option>
+                    </select>
+
+                    {![1, 4, 12, 24, 48, 72].includes(callbackDelayHours) && (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={720}
+                          value={callbackDelayHours}
+                          onChange={(e) => setCallbackDelayHours(Math.max(1, Number(e.target.value)))}
+                          placeholder="Type custom hours..."
+                          className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2.5 text-xs text-white focus:outline-none font-mono"
+                        />
+                        <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Hours</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

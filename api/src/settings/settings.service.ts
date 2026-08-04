@@ -29,7 +29,7 @@ export class SettingsService {
     }
   }
 
-  async updateAgent(id: string, data: { name?: string; prompt?: string; voiceId?: string }) {
+  async updateAgent(id: string, data: { name?: string; prompt?: string; voiceId?: string; callbackDelayHours?: number }) {
     try {
       return await this.prisma.agent.update({
         where: { id },

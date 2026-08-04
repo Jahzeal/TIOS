@@ -504,17 +504,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               where: { phone: callerPhone, status: { in: ['PENDING_QUOTE', 'SMS_SENT', 'PAID'] } },
             });
 
-            if (!existingPayment && callerPhone && !callerPhone.includes('Web Voice')) {
+            const quoteAmount = (analysis as any).quotedAmount;
+            const serviceName = (analysis as any).inquiredService;
+
+            if (!existingPayment && callerPhone && !callerPhone.includes('Web Voice') && typeof quoteAmount === 'number' && quoteAmount > 0) {
               await this.paymentsService.createCheckoutLink({
                 tenantId: targetTenantId,
-                amount: 250.0,
+                amount: quoteAmount,
                 phone: callerPhone,
-                inquiredService: 'Utility Service Setup',
+                inquiredService: serviceName || 'Service Inquiry',
                 callId: callRecordId,
                 status: 'PENDING_QUOTE',
-                notes: `Auto-captured from inquiry call summary: "${analysis.summary || 'Caller inquired about utility service options.'}"`,
+                notes: `Auto-captured from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
               });
-              console.log(`[Prospective Lead Engine] Logged PENDING_QUOTE for caller ${callerPhone}.`);
+              console.log(`[Prospective Lead Engine] Logged PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
             }
           } catch (quoteErr) {
             console.error('[Prospective Lead Engine] Failed to log pending quote:', quoteErr);

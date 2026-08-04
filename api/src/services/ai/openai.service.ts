@@ -76,7 +76,7 @@ export class OpenAiService {
           {
             role: 'system',
             content:
-              'You are a call analysis engine. Summarize the call history in one short sentence, and classify the overall sentiment as POSITIVE, NEUTRAL, or NEGATIVE.',
+              'You are a call analysis engine. Return JSON strictly in this format: {"summary": "short 1-sentence summary", "sentiment": "POSITIVE|NEUTRAL|NEGATIVE", "inquiredService": "exact product or service discussed (e.g. Custom 2K Door)", "quotedAmount": exact_dollar_number_discussed_or_null}. Do not invent numbers. If no dollar price was mentioned in the dialogue, set quotedAmount to null.',
           },
           {
             role: 'user',
@@ -91,11 +91,15 @@ export class OpenAiService {
         return {
           summary: parsed.summary || content.slice(0, 100),
           sentiment: parsed.sentiment || 'NEUTRAL',
+          inquiredService: parsed.inquiredService || null,
+          quotedAmount: typeof parsed.quotedAmount === 'number' && !isNaN(parsed.quotedAmount) ? parsed.quotedAmount : null,
         };
       } catch (e) {
         return {
           summary: content.slice(0, 100) || 'Conversation analyzed.',
           sentiment: 'NEUTRAL',
+          inquiredService: null,
+          quotedAmount: null,
         };
       }
     } catch (err) {
