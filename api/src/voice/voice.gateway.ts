@@ -120,26 +120,31 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
 
-        try {
-          const activeDebt = await this.prisma.payment.findFirst({
-            where: { phone: callerPhone, status: { not: 'PAID' } },
-            orderBy: { createdAt: 'desc' },
-          });
+        const directionQuery = getQueryParam('direction');
+        const isOutbound = directionQuery.toUpperCase() === 'OUTBOUND';
 
-          if (activeDebt) {
-            systemPrompt += `\n\n[PAST UNPAID INVOICE & DEBT COLLECTOR RULE]:\n` +
-              `The caller has an existing unpaid quote/invoice on record for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
-              `CRITICAL WORKFLOW:\n` +
-              `1. PRIMARY FOCUS (100%): Always answer and conclude the caller's PRESENT inquiry first (e.g. current questions about custom doors, pricing, or new services) without bringing up payments prematurely.\n` +
-              `2. AFTER CONCLUDING PRESENT INQUIRY: Only after fully answering their current request, politely bring up their previous quote as a helpful add-on (e.g. "By the way, I noticed an earlier open quote on your account for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). Would you like a payment link sent for that as well?").\n` +
-              `3. IF CALLER AGREES OR ASKS TO PAY: Include the tag [ACTION:SEND_PAYMENT_LINK] at the start of your response, naming the exact item and price ("${activeDebt.inquiredService || 'Service'}" for $${activeDebt.amount.toFixed(2)}).`;
-          }
-        } catch (e) {}
+        if (isOutbound) {
+          try {
+            const activeDebt = await this.prisma.payment.findFirst({
+              where: { phone: callerPhone, status: { not: 'PAID' } },
+              orderBy: { createdAt: 'desc' },
+            });
 
-        systemPrompt += `\n\nPAYMENT DISPATCH & OBJECTION HANDLING RULE:\n` +
-          `- When suggesting a payment link, ALWAYS explicitly name the exact item and price (e.g. "Italian Door for $500"). Never leave the product or price ambiguous.\n` +
-          `- VALUE EXPLANATION & OBJECTION HANDLING: If the caller asks what a payment covers, questions a price, or objects (e.g. "What is this for?" or "$250 for words"), DO NOT output [ACTION:SEND_PAYMENT_LINK] or repeat a sales line. IMMEDIATELY explain clearly what that cost includes, break down the value, and ask how they would like to proceed.\n` +
-          `- SMS CONFIRMATION: Once a payment link is dispatched, confirm warmly to the caller: "I have just sent the payment link via SMS text to your phone! Please check your text messages."`;
+            if (activeDebt) {
+              systemPrompt += `\n\nOUTBOUND FOLLOW-UP CALLBACK RULE:\n` +
+                `You are calling the customer back to follow up on their earlier quote for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
+                `- Greet the customer warmly and state the reason for your follow-up call (e.g. "Hi there! I'm following up on your earlier quote for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). I wanted to see if you had any questions or if you would like a secure payment link sent to finalize your order?").\n` +
+                `- If they AGREE or ask to pay, output [ACTION:SEND_PAYMENT_LINK] at the start of your response, naming the exact item and amount.\n` +
+                `- If they DECLINE or ask about a NEW product, switch immediately to their new inquiry and do NOT force the old quote.`;
+            }
+          } catch (e) {}
+        } else {
+          systemPrompt += `\n\nINBOUND SALES RECEPTIONIST RULE:\n` +
+            `1. CLEAN INQUIRY ANSWERING (100% FOCUS): Answer all caller questions about products, services, features, and pricing directly and cleanly. NEVER append unsolicited payment link offers or past debt reminders to simple price or information inquiries.\n` +
+            `2. EXPLICIT PAYMENT REQUEST ONLY: Include the exact tag [ACTION:SEND_PAYMENT_LINK] ONLY if the caller explicitly asks to buy a product, pay an invoice, or requests a checkout link (e.g. "Send me the payment link", "I want to buy the $500 door", "How can I pay my balance?"). ALWAYS state the exact product name and dollar amount.\n` +
+            `3. REJECTION & OBJECTION LOCK: If the caller says "No", "Cancel", "Wait", "I didn't ask for that", or questions a price, DO NOT output [ACTION:SEND_PAYMENT_LINK]. Apologize for any confusion, explain clearly what the product/service includes, and stay on their topic.\n` +
+            `4. SMS CONFIRMATION: Once a payment link is dispatched, confirm warmly to the caller: "I have just sent the payment link via SMS text to your phone! Please check your text messages."`;
+        }
 
         systemPrompt += `\n\nCONCISENESS & NATURAL FLOW RULE:\nKeep responses concise, warm, and helpful (1 to 2 sentences max, around 15-25 words). Answer questions directly without long filler introductions or unnecessary preamble.`;
       }
