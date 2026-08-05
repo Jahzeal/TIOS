@@ -1,32 +1,17 @@
-import { Inject } from '@nestjs/common';
 import {
   WebSocketGateway,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { Injectable, Inject } from '@nestjs/common';
 import { WebSocket } from 'ws';
 import * as url from 'url';
-import { LiveTranscriptionEvents } from '@deepgram/sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAiService } from '../services/ai/openai.service';
 import { DeepgramService } from '../services/ai/deepgram.service';
 import { ElevenLabsService, SpeechSession } from '../services/ai/elevenlabs.service';
-import { config } from '../config';
-
-function containsEmergency(text: string): boolean {
-  const normalized = text.toLowerCase();
-  return config.emergencyKeywords.some((keyword) => normalized.includes(keyword));
-}
-
-
-
-function containsGoodbye(text: string): boolean {
-  const keywords = ['goodbye', 'bye', 'talk to you later', 'have a nice day', 'hang up', 'see you later', 'bye bye'];
-  const normalized = text.toLowerCase().trim();
-  return keywords.some((kw) => normalized.includes(kw));
-}
-
-import { PaymentsService } from '../payments/payments.service';
+import { VoicePromptBuilderService } from './voice-prompt-builder.service';
+import { VoiceActionHandlerService } from './voice-action-handler.service';
 
 @WebSocketGateway({ path: '/stream' })
 export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -35,7 +20,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(OpenAiService) private readonly openAiService: OpenAiService,
     @Inject(DeepgramService) private readonly deepgramService: DeepgramService,
     @Inject(ElevenLabsService) private readonly elevenLabsService: ElevenLabsService,
-    @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
+    @Inject(VoicePromptBuilderService) private readonly promptBuilderService: VoicePromptBuilderService,
+    @Inject(VoiceActionHandlerService) private readonly actionHandlerService: VoiceActionHandlerService,
   ) {}
 
   async handleConnection(ws: WebSocket, req: any) {
@@ -57,11 +43,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const agentIdQuery = getQueryParam('agentId');
     const callSidQuery = getQueryParam('callSid');
     const callerPhoneQuery = getQueryParam('callerPhone');
-    const isWebQuery = getQueryParam('isWeb');
+    const directionQuery = getQueryParam('direction').toUpperCase();
 
     const isWebCall =
-      isWebQuery === 'true' ||
-      tenantIdQuery === 'web-tenant' ||
+      !callerPhoneQuery ||
       callerPhoneQuery.toLowerCase().includes('web') ||
       decodeURIComponent(callerPhoneQuery).toLowerCase().includes('web');
 
@@ -82,365 +67,171 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let callRecordId = '';
     let isCallActive = true;
     let speechSession: SpeechSession | null = null;
-    let chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
-    let dbCallRecord: any = null;
+    let deepgramLive: any = null;
     const startTime = Date.now();
 
-    let systemPrompt = 'You are a helpful AI receptionist.';
-    let voiceId = 'EXAVITQu4vr4xnSDxMaL';
+    const chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
 
     let activeAgent: any = null;
+    let targetAgentId = agentId;
+    let targetTenantId = tenantId;
 
     try {
-      if (agentId && agentId !== 'default-agent') {
-        activeAgent = await this.prisma.agent.findUnique({
-          where: { id: agentId },
-          include: { tenant: true },
-        });
+      if (agentId) {
+        activeAgent = await this.prisma.agent.findUnique({ where: { id: agentId }, include: { tenant: true } });
       }
-
+      if (!activeAgent && tenantId) {
+        activeAgent = await this.prisma.agent.findFirst({ where: { tenantId }, include: { tenant: true } });
+      }
       if (!activeAgent) {
-        activeAgent = await this.prisma.agent.findFirst({
-          include: { tenant: true },
-        });
+        activeAgent = await this.prisma.agent.findFirst({ include: { tenant: true } });
       }
 
       if (activeAgent) {
-        systemPrompt = activeAgent.prompt;
-        voiceId = activeAgent.voiceId;
-
-        if (activeAgent.tenantId) {
-          tenantId = activeAgent.tenantId;
-          const kbEntries = await this.prisma.knowledgeBase.findMany({
-            where: { tenantId: activeAgent.tenantId },
-          });
-          if (kbEntries.length > 0) {
-            const kbText = kbEntries.map((e) => `Q: ${e.question}\nA: ${e.answer}`).join('\n\n');
-            systemPrompt += `\n\nBUSINESS KNOWLEDGE BASE (Use these facts to answer caller questions accurately):\n${kbText}`;
-          }
-        }
-        systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
-
-        const directionQuery = getQueryParam('direction');
-        const isOutbound = directionQuery.toUpperCase() === 'OUTBOUND';
-
-        if (isOutbound) {
-          try {
-            const activeDebt = await this.prisma.payment.findFirst({
-              where: { phone: callerPhone, status: { not: 'PAID' } },
-              orderBy: { createdAt: 'desc' },
-            });
-
-            if (activeDebt) {
-              systemPrompt += `\n\nOUTBOUND FOLLOW-UP CALLBACK RULE:\n` +
-                `You are calling the customer back to follow up on their earlier quote for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
-                `- Greet the customer warmly and state the reason for your follow-up call (e.g. "Hi there! I'm following up on your earlier quote for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). I wanted to see if you had any questions or if you would like a secure payment link sent to finalize your order?").\n` +
-                `- If they AGREE or ask to pay, output [ACTION:SEND_PAYMENT_LINK] at the start of your response, naming the exact item and amount.\n` +
-                `- If they DECLINE or ask about a NEW product, switch immediately to their new inquiry and do NOT force the old quote.`;
-            }
-          } catch (e) {}
-        } else {
-          systemPrompt += `\n\nINBOUND SALES RECEPTIONIST RULE:\n` +
-            `1. CLEAN INQUIRY ANSWERING (100% FOCUS): Answer all caller questions about products, services, features, and pricing directly and cleanly. NEVER append unsolicited payment link offers or past debt reminders to simple price or information inquiries.\n` +
-            `2. EXPLICIT PAYMENT REQUEST ONLY: Include the exact tag [ACTION:SEND_PAYMENT_LINK] ONLY if the caller explicitly asks to buy a product, pay an invoice, or requests a checkout link (e.g. "Send me the payment link", "I want to buy the $500 door", "How can I pay my balance?"). ALWAYS state the exact product name and dollar amount.\n` +
-            `3. REJECTION & OBJECTION LOCK: If the caller says "No", "Cancel", "Wait", "I didn't ask for that", or questions a price, DO NOT output [ACTION:SEND_PAYMENT_LINK]. Apologize for any confusion, explain clearly what the product/service includes, and stay on their topic.\n` +
-            `4. SMS CONFIRMATION: Once a payment link is dispatched, confirm warmly to the caller: "I have just sent the payment link via SMS text to your phone! Please check your text messages."`;
-        }
-
-        systemPrompt += `\n\nCONCISENESS & NATURAL FLOW RULE:\nKeep responses concise, warm, and helpful (1 to 2 sentences max, around 15-25 words). Answer questions directly without long filler introductions or unnecessary preamble.`;
+        targetAgentId = activeAgent.id;
+        targetTenantId = activeAgent.tenantId || tenantId;
       }
     } catch (err) {
-      console.error('[WebSocket Context] Agent query failed:', err);
+      console.error('[VoiceGateway] Agent lookup error:', err);
     }
+
+    const voiceId = activeAgent?.voiceId || '21m00Tcm4TlvDq8ikWAM';
+    const isOutbound = directionQuery === 'OUTBOUND';
+
+    // Construct system prompt via VoicePromptBuilderService
+    const systemPrompt = await this.promptBuilderService.buildSystemPrompt({
+      activeAgent,
+      callerPhone,
+      isOutbound,
+    });
 
     chatHistory.push({ role: 'system', content: systemPrompt });
 
-    let targetAgentId = activeAgent?.id;
-    let targetTenantId = activeAgent?.tenantId || (tenantId !== 'web-tenant' ? tenantId : undefined);
-
-    if (!targetAgentId) {
-      const fallbackAgent = await this.prisma.agent.findFirst();
-      if (fallbackAgent) {
-        targetAgentId = fallbackAgent.id;
-        targetTenantId = fallbackAgent.tenantId || undefined;
-      }
-    }
-
-    // Defer call record creation/binding until start event arrives with true CallSid
-
-    let deepgramLive: any = null;
-    let llmCancellation = { cancelled: false };
-
-    const dgStream = this.deepgramService.createDeepgramLiveStream(isWebCall);
-    if (dgStream) {
-      deepgramLive = dgStream;
-
-      deepgramLive.on(LiveTranscriptionEvents.Open, () => {
-        console.log('[Deepgram] Streaming STT connection established');
-      });
-
-      deepgramLive.on(LiveTranscriptionEvents.Transcript, async (data: any) => {
-        const transcript = data.channel.alternatives[0]?.transcript || '';
-        const isFinal = data.is_final;
-
-        if (transcript.trim()) {
-          if (speechSession && speechSession.getIsPlaying()) {
-            console.log(`[Interruption Engine] User spoke: "${transcript}". Flusher triggered.`);
-            speechSession.interrupt();
-            llmCancellation.cancelled = true;
-          }
-
-          if (isFinal) {
-            console.log(`[STT Final] Caller: "${transcript}"`);
-            if (isWebCall) {
-              try {
-                ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: transcript }));
-              } catch (e) {}
-            }
-
-            if (containsEmergency(transcript)) {
-              console.log(`[Safety Engine] Emergency keyword detected: "${transcript}"`);
-              isCallActive = false;
-
-              try {
-                if (callRecordId) {
-                  await this.prisma.call.update({
-                    where: { id: callRecordId },
-                    data: {
-                      status: 'FORWARD_REQUESTED',
-                      summary: `Emergency triggered: "${transcript}".`,
-                    },
-                  });
-                }
-              } catch (err) {
-                console.error('[Safety Engine] DB Update Failed:', err);
-              }
-
-              ws.close();
-              return;
-            }
-
-
-
-            chatHistory.push({ role: 'user', content: transcript });
-
-            // Cancel any previous LLM streaming loop
-            llmCancellation.cancelled = true;
-
-            // Bind a new cancellation token for this specific completion
-            const currentToken = { cancelled: false };
-            llmCancellation = currentToken;
-
-            try {
-              const stream = await this.openAiService.getLlmCompletionStream(chatHistory);
-
-              let fullResponseText = '';
-              let currentSentence = '';
-              let hasDispatchedPaymentForTurn = false;
-
-              for await (const chunk of stream) {
-                if (currentToken.cancelled || !isCallActive) {
-                  console.log('[LLM] Generative response cancelled.');
-                  break;
-                }
-
-                const content = chunk.choices[0]?.delta?.content || '';
-                fullResponseText += content;
-                currentSentence += content;
-
-                const sentenceEndRegex = /[,.!?;:]\s+/;
-                const match = currentSentence.match(sentenceEndRegex);
-                const wordCount = currentSentence.trim().split(/\s+/).length;
-                if ((match && match.index !== undefined) || wordCount >= 6) {
-                  const endPos = match && match.index !== undefined ? match.index + 1 : currentSentence.length;
-                  const sentence = currentSentence.substring(0, endPos).trim();
-                  currentSentence = currentSentence.substring(endPos);
-
-                  const cleanSentence = sentence
-                    .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
-                    .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
-                    .replace(/\[ACTION:[A_Z0-9_]+\]/gi, '')
-                    .trim();
-                  if (cleanSentence && !currentToken.cancelled) {
-                    if (!speechSession && (streamSid || callSid)) {
-                      speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
-                    }
-                    if (speechSession) {
-                      speechSession.enqueueSentence(cleanSentence);
-                    }
-                  }
-                }
-              }
-
-              const finalSentence = currentSentence
-                .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
-                .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
-                .trim();
-              if (finalSentence && !currentToken.cancelled) {
-                if (!speechSession && (streamSid || callSid)) {
-                  speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
-                }
-                if (speechSession) {
-                  speechSession.enqueueSentence(finalSentence);
-                }
-              }
-
-              if (fullResponseText.trim()) {
-                const cleanedFullText = fullResponseText
-                  .replace(/\[ACTION:REQUEST_CALLBACK\]/gi, '')
-                  .replace(/\[ACTION:SEND_PAYMENT_LINK\]/gi, '')
-                  .trim();
-                const savedContent = currentToken.cancelled ? `${cleanedFullText}...` : cleanedFullText;
-                chatHistory.push({ role: 'assistant', content: savedContent });
-                if (isWebCall && !currentToken.cancelled) {
-                  try {
-                    ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: savedContent }));
-                  } catch (e) {}
-                }
-              }
-
-              if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !hasDispatchedPaymentForTurn && !currentToken.cancelled) {
-                hasDispatchedPaymentForTurn = true;
-                console.log(`[AI Payment Engine] LLM detected payment intent dynamically. Dispatching SMS checkout link...`);
-                try {
-                  const dialogueHistory = chatHistory.filter((t) => t.role !== 'system');
-                  const analysis = await this.openAiService.analyzeCallDialogue(dialogueHistory);
-
-                  let finalAmount = (analysis as any).quotedAmount;
-                  let finalService = (analysis as any).inquiredService;
-
-                  if (typeof finalAmount !== 'number' || finalAmount <= 0) {
-                    const activeDebt = await this.prisma.payment.findFirst({
-                      where: { phone: callerPhone, status: { not: 'PAID' } },
-                      orderBy: { createdAt: 'desc' },
-                    });
-                    if (activeDebt) {
-                      finalAmount = activeDebt.amount;
-                      finalService = activeDebt.inquiredService;
-                    }
-                  }
-
-                  finalAmount = typeof finalAmount === 'number' && finalAmount > 0 ? finalAmount : 500.0;
-                  finalService = finalService || 'Custom Product / Service Inquiry';
-
-                  const paymentRecord = await this.paymentsService.createCheckoutLink({
-                    tenantId: targetTenantId,
-                    amount: finalAmount,
-                    phone: callerPhone,
-                    inquiredService: finalService,
-                    callId: callRecordId,
-                    status: 'SMS_SENT',
-                  });
-
-                  if (paymentRecord && paymentRecord.id) {
-                    await this.paymentsService.sendPaymentSms(paymentRecord.id);
-                    console.log(`[AI Payment Engine] SMS Payment Link dispatched ($${finalAmount} for ${finalService}) to ${callerPhone}: ${paymentRecord.link}`);
-                  }
-                } catch (paymentErr) {
-                  console.error('[AI Payment Engine] Failed to dispatch SMS payment link:', paymentErr);
-                }
-              }
-
-              if (fullResponseText.includes('[ACTION:REQUEST_CALLBACK]') && !currentToken.cancelled) {
-                console.log(`[AI Action Engine] LLM detected callback intent dynamically. Updating DB...`);
-                isCallActive = false;
-
-                if (isWebCall) {
-                  try {
-                    ws.send(JSON.stringify({ event: 'hangup' }));
-                  } catch (e) {}
-                }
-
-                try {
-                  if (callRecordId) {
-                    await this.prisma.call.update({
-                      where: { id: callRecordId },
-                      data: {
-                        status: 'FORWARD_REQUESTED',
-                        summary: `Callback/Transfer requested by caller: "${transcript}".`,
-                      },
-                    });
-                  }
-                } catch (err) {
-                  console.error('[AI Action Engine] DB Update Failed:', err);
-                }
-
-                setTimeout(() => {
-                  try {
-                    console.log('[AI Action Engine] Closing WebSocket connection after AI Action Callback.');
-                    ws.close();
-                  } catch (e) {}
-                }, 5000);
-              } else if (containsGoodbye(transcript) && !currentToken.cancelled) {
-                console.log(`[Goodbye Engine] Goodbye intent detected: "${transcript}". Scheduling graceful hangup...`);
-                isCallActive = false;
-
-                if (isWebCall) {
-                  try {
-                    ws.send(JSON.stringify({ event: 'hangup' }));
-                  } catch (e) {}
-                }
-
-                setTimeout(() => {
-                  try {
-                    console.log('[Goodbye Engine] Closing WebSocket to hang up phone call.');
-                    ws.close();
-                  } catch (e) {}
-                }, 4500);
-              }
-            } catch (err) {
-              console.error('[LLM] OpenAI streaming error:', err);
-            }
-          }
-        }
-      });
-
-      deepgramLive.on(LiveTranscriptionEvents.Error, (err: any) => {
-        console.error('[Deepgram Live Error]:', JSON.stringify(err || {}));
-      });
-
-      deepgramLive.on(LiveTranscriptionEvents.Close, (event: any) => {
-        console.log('[Deepgram Close Reason]:', JSON.stringify(event || {}));
-      });
-    }
-
-    let hasGreeted = false;
-    let mediaChunkCount = 0;
+    let isProcessingLlm = false;
+    let accumulatedUserTranscript = '';
+    let silenceTimer: NodeJS.Timeout | null = null;
+    let hasDispatchedGreeting = false;
+    let dbCallRecord: any = null;
 
     const triggerGreeting = () => {
-      if (!hasGreeted) {
-        hasGreeted = true;
-        if (!speechSession && (streamSid || callSid)) {
-          speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
-        }
-        const greetingText = 'Hello! Thank you for calling. How can I help you today?';
-        if (speechSession) {
-          speechSession.enqueueSentence(greetingText);
-        }
-        chatHistory.push({
-          role: 'assistant',
-          content: greetingText,
-        });
-        if (isWebCall) {
-          try {
-            ws.send(
-              JSON.stringify({
-                event: 'transcript',
-                role: 'agent',
-                text: greetingText,
-              }),
-            );
-          } catch (e) {}
-        }
+      if (hasDispatchedGreeting || !isCallActive) return;
+      hasDispatchedGreeting = true;
+
+      const initialGreeting = isOutbound
+        ? `Hello! This is ${activeAgent?.tenant?.name || 'Hive'} following up on your earlier quote inquiry. How are you doing today?`
+        : `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
+
+      chatHistory.push({ role: 'assistant', content: initialGreeting });
+      console.log(`[VoiceGateway Greeting Sent]: "${initialGreeting}"`);
+
+      if (speechSession) {
+        speechSession.enqueueSentence(initialGreeting);
       }
     };
 
-    ws.on('message', async (message: string) => {
+    const processFinalUserUtterance = async (userText: string) => {
+      if (!userText.trim() || isProcessingLlm || !isCallActive) return;
+      isProcessingLlm = true;
+
+      if (speechSession) {
+        speechSession.interrupt();
+      }
+
+      console.log(`[STT Final] Caller: "${userText}"`);
+      chatHistory.push({ role: 'user', content: userText });
+
       try {
-        const data = JSON.parse(message);
-        if (data.event !== 'media') {
-          console.log('[VoiceGateway WS Event]:', data.event, JSON.stringify(data));
+        let sentenceBuffer = '';
+        let fullResponseText = '';
+        let hasDispatchedPaymentForTurn = false;
+
+        const stream = await this.openAiService.getLlmCompletionStream(chatHistory);
+
+        for await (const chunk of stream) {
+          if (!isCallActive) break;
+
+          fullResponseText += chunk;
+          sentenceBuffer += chunk;
+
+          const sentencePunctuationMatch = sentenceBuffer.match(/([^.!?]+[.!?]+(?:\s+|$))/);
+          if (sentencePunctuationMatch) {
+            const completeSentence = sentencePunctuationMatch[1].trim();
+            sentenceBuffer = sentenceBuffer.slice(sentencePunctuationMatch[0].length);
+
+            if (completeSentence) {
+              const cleanSentence = completeSentence.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+              if (cleanSentence && speechSession) {
+                speechSession.enqueueSentence(cleanSentence);
+              }
+            }
+          }
+
+          if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !hasDispatchedPaymentForTurn) {
+            hasDispatchedPaymentForTurn = true;
+            await this.actionHandlerService.handlePaymentAction({
+              responseText: fullResponseText,
+              chatHistory,
+              callerPhone,
+              targetTenantId,
+              callRecordId,
+            });
+          }
+
+          if (fullResponseText.includes('[ACTION:REQUEST_CALLBACK]')) {
+            await this.actionHandlerService.handleCallbackAction(callRecordId);
+          }
         }
+
+        if (sentenceBuffer.trim() && isCallActive && speechSession) {
+          const cleanSentence = sentenceBuffer.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          if (cleanSentence) {
+            speechSession.enqueueSentence(cleanSentence);
+          }
+        }
+
+        chatHistory.push({ role: 'assistant', content: fullResponseText.trim() });
+        console.log(`[AI Response Completed]: "${fullResponseText.trim()}"`);
+      } catch (llmErr) {
+        console.error('[VoiceGateway LLM Error]:', llmErr);
+      } finally {
+        isProcessingLlm = false;
+      }
+    };
+
+    deepgramLive = this.deepgramService.createDeepgramLiveStream(isWebCall);
+
+    if (deepgramLive && (deepgramLive as any).addListener) {
+      (deepgramLive as any).addListener('transcriptReceived', (transcriptData: any) => {
+        if (!isCallActive) return;
+
+        try {
+          const parsed = typeof transcriptData === 'string' ? JSON.parse(transcriptData) : transcriptData;
+          const transcript = parsed.channel?.alternatives?.[0]?.transcript || '';
+          const isFinal = parsed.is_final || false;
+
+          if (transcript.trim()) {
+            if (isFinal) {
+              accumulatedUserTranscript += ' ' + transcript;
+              if (silenceTimer) clearTimeout(silenceTimer);
+
+              silenceTimer = setTimeout(() => {
+                const finalText = accumulatedUserTranscript.trim();
+                accumulatedUserTranscript = '';
+                if (finalText) {
+                  processFinalUserUtterance(finalText);
+                }
+              }, 800);
+            }
+          }
+        } catch (e) {}
+      });
+    }
+
+    let mediaChunkCount = 0;
+
+    ws.on('message', async (message: any) => {
+      try {
+        const data = JSON.parse(message.toString());
 
         switch (data.event) {
           case 'connected':
@@ -450,7 +241,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             streamSid = data.start?.streamSid || '';
             const customParams = data.start?.customParameters || {};
             const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
-            const trueSid = data.start?.callSid || customParams.callSid || callSid;
+            trueSid = data.start?.callSid || customParams.callSid || callSid;
 
             if (targetAgentId) {
               try {
@@ -472,13 +263,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                       data: { callerPhone: paramPhone },
                     }).catch(() => {});
                   }
-                  console.log(`[Twilio Stream Start] Real CallSid Bound: ${trueSid}, Final CallerPhone: ${callerPhone}`);
                 } else {
                   const finalPhone = (paramPhone && paramPhone.startsWith('+')) ? paramPhone : callerPhone;
                   dbCallRecord = await this.prisma.call.create({
                     data: {
                       sid: trueSid,
-                      direction: 'INBOUND',
+                      direction: isOutbound ? 'OUTBOUND' : 'INBOUND',
                       status: 'IN_PROGRESS',
                       callerPhone: finalPhone,
                       agentId: targetAgentId,
@@ -494,10 +284,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
 
             console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, Phone: ${callerPhone}`);
-            triggerGreeting();
             break;
           case 'media':
-            if (data.streamSid && !streamSid) {
+            if (!streamSid && data.streamSid) {
               streamSid = data.streamSid;
             }
             if (!speechSession && (streamSid || callSid)) {
@@ -506,12 +295,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             triggerGreeting();
             mediaChunkCount++;
             if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
-              console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received (${data.media?.payload?.length || 0} chars).`);
+              console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received.`);
             }
             if (isCallActive && deepgramLive) {
               try {
                 const rawAudio = Buffer.from(data.media.payload, 'base64');
-                deepgramLive.send(rawAudio);
+                if (typeof deepgramLive.send === 'function') {
+                  deepgramLive.send(rawAudio);
+                }
               } catch (err) {
                 console.error('[Deepgram Send Error]:', err);
               }
@@ -521,11 +312,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             console.log('[Twilio Stop] Media stream stopped.');
             break;
           default:
-            console.log('[VoiceGateway WS Unknown Event]:', data);
             break;
         }
       } catch (err) {
-        console.error('[WebSocket Message Error] Parsing failed:', err, 'Raw text:', message);
+        console.error('[WebSocket Message Error] Parsing failed:', err);
       }
     });
 
@@ -533,82 +323,21 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log('[WebSocket Close] Connection terminated.');
       isCallActive = false;
 
-      if (deepgramLive) {
+      if (deepgramLive && typeof deepgramLive.finish === 'function') {
         try {
           deepgramLive.finish();
         } catch (e) {}
       }
 
-      const duration = Math.round((Date.now() - startTime) / 1000);
-
-      try {
-        if (callRecordId) {
-          const callRecord = await this.prisma.call.findUnique({ where: { id: callRecordId } });
-          const finalStatus =
-            callRecord?.status === 'FORWARD_REQUESTED' ? 'FORWARD_REQUESTED' : 'COMPLETED';
-
-          const dialogueHistory = chatHistory.filter((t) => t.role !== 'system');
-          const formattedHistory = dialogueHistory.map((t) => ({
-            role: t.role,
-            text: t.content,
-            timestamp: new Date().toISOString(),
-          }));
-
-          const analysis = await this.openAiService.analyzeCallDialogue(dialogueHistory);
-
-          await this.prisma.call.update({
-            where: { id: callRecordId },
-            data: {
-              status: finalStatus,
-              duration: duration,
-              summary: analysis.summary,
-              sentiment: analysis.sentiment,
-              transcript: formattedHistory as any,
-            },
-          });
-          console.log(`[WebSocket DB Log] Saved call record ${callRecordId} successfully.`);
-
-          // Auto-create PENDING_QUOTE for prospective inquiries if none exists
-          try {
-            const existingPayment = await this.prisma.payment.findFirst({
-              where: { phone: callerPhone, status: { in: ['PENDING_QUOTE', 'SMS_SENT', 'PAID'] } },
-            });
-
-            const quoteAmount = (analysis as any).quotedAmount;
-            const serviceName = (analysis as any).inquiredService;
-
-            if (callerPhone && typeof quoteAmount === 'number' && quoteAmount > 0) {
-              if (existingPayment && existingPayment.status === 'PENDING_QUOTE') {
-                await this.prisma.payment.update({
-                  where: { id: existingPayment.id },
-                  data: {
-                    amount: quoteAmount,
-                    inquiredService: serviceName || 'Service Inquiry',
-                    callId: callRecordId,
-                    notes: `Updated from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
-                  },
-                });
-                console.log(`[Prospective Lead Engine] Updated PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
-              } else if (!existingPayment) {
-                await this.paymentsService.createCheckoutLink({
-                  tenantId: targetTenantId,
-                  amount: quoteAmount,
-                  phone: callerPhone,
-                  inquiredService: serviceName || 'Service Inquiry',
-                  callId: callRecordId,
-                  status: 'PENDING_QUOTE',
-                  notes: `Auto-captured from call dialogue: "${analysis.summary || 'Caller inquired about service options.'}"`,
-                });
-                console.log(`[Prospective Lead Engine] Logged new PENDING_QUOTE ($${quoteAmount} for ${serviceName || 'Service Inquiry'}) for caller ${callerPhone}.`);
-              }
-            }
-          } catch (quoteErr) {
-            console.error('[Prospective Lead Engine] Failed to log pending quote:', quoteErr);
-          }
-        }
-      } catch (err) {
-        console.error('[WebSocket DB Log] Cleanup update failed:', err);
-      }
+      await this.actionHandlerService.finalizeCallSummary({
+        callRecordId,
+        callSid,
+        trueSid,
+        chatHistory,
+        startTime,
+        callerPhone,
+        targetTenantId,
+      });
     });
   }
 
