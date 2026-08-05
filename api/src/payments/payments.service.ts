@@ -105,7 +105,42 @@ export class PaymentsService {
         return { success: false, message: 'Payment record not found.' };
       }
 
-      const smsText = `Hi! Here is your secure payment link for ${payment.inquiredService || 'Utility Service Setup'} ($${payment.amount.toFixed(2)}): ${payment.link}`;
+      const smsText = `Hi! Here is your secure payment link for ${payment.inquiredService || 'Service Inquiry'} ($${payment.amount.toFixed(2)}): ${payment.link}`;
+
+      // Dispatch real Twilio SMS text message if Twilio credentials exist
+      let twilioStatus = 'SENT';
+      const accountSid = config.twilioAccountSid || process.env.TWILIO_ACCOUNT_SID;
+      const authToken = config.twilioAuthToken || process.env.TWILIO_AUTH_TOKEN;
+      const fromPhone = payment.tenant?.twilioPhone || config.twilioPhoneNumber || process.env.TWILIO_PHONE_NUMBER;
+
+      if (accountSid && authToken && fromPhone && payment.phone && !payment.phone.includes('Web Voice')) {
+        try {
+          const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+          const bodyParams = new URLSearchParams();
+          bodyParams.append('From', fromPhone);
+          bodyParams.append('To', payment.phone);
+          bodyParams.append('Body', smsText);
+
+          const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Basic ${auth}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: bodyParams.toString(),
+          });
+
+          if (!twilioRes.ok) {
+            const errData = await twilioRes.text();
+            console.warn('[Twilio SMS API Warning] Twilio SMS dispatch response:', errData);
+          } else {
+            console.log(`[Twilio SMS API] Real SMS payment link dispatched to ${payment.phone}`);
+          }
+        } catch (smsErr) {
+          console.error('[Twilio SMS API Error] Failed to send SMS via Twilio:', smsErr);
+          twilioStatus = 'FAILED';
+        }
+      }
 
       // Log SMS dispatch in database
       await this.prisma.smsLog.create({
@@ -113,7 +148,7 @@ export class PaymentsService {
           tenantId: payment.tenantId,
           phone: payment.phone,
           message: smsText,
-          status: 'SENT',
+          status: twilioStatus,
         },
       });
 

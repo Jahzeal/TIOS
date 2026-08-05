@@ -127,14 +127,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
 
           if (activeDebt) {
-            systemPrompt += `\n\n[PAST UNPAID INVOICE / QUOTE RULE]:\n` +
-              `The caller has an existing unpaid quote on record for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
-              `CRITICAL EXECUTION ORDER:\n` +
-              `1. PRIMARY FOCUS (100%): Always answer and conclude the caller's PRESENT inquiry first (e.g. current questions about custom doors, pricing, or new services).\n` +
-              `2. AFTER CONCLUDING PRESENT INQUIRY: Only after concluding or answering their current request, politely bring up their previous quote as a helpful add-on (e.g. "By the way, I noticed an earlier open quote on your account for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). Would you like a payment link sent for that as well?").\n` +
-              `3. IF CALLER AGREES OR ASKS TO PAY: Include the tag [ACTION:SEND_PAYMENT_LINK] at the start of your response.`;
+            systemPrompt += `\n\n[PAST UNPAID INVOICE & DEBT COLLECTOR RULE]:\n` +
+              `The caller has an existing unpaid quote/invoice on record for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
+              `CRITICAL WORKFLOW:\n` +
+              `1. PRIMARY FOCUS (100%): Always answer and conclude the caller's PRESENT inquiry first (e.g. current questions about custom doors, pricing, or new services) without bringing up payments prematurely.\n` +
+              `2. AFTER CONCLUDING PRESENT INQUIRY: Only after fully answering their current request, politely bring up their previous quote as a helpful add-on (e.g. "By the way, I noticed an earlier open quote on your account for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). Would you like a payment link sent for that as well?").\n` +
+              `3. IF CALLER AGREES OR ASKS TO PAY: Include the tag [ACTION:SEND_PAYMENT_LINK] at the start of your response, naming the exact item and price ("${activeDebt.inquiredService || 'Service'}" for $${activeDebt.amount.toFixed(2)}).`;
           }
         } catch (e) {}
+
+        systemPrompt += `\n\nPAYMENT DISPATCH & OBJECTION HANDLING RULE:\n` +
+          `- When suggesting a payment link, ALWAYS explicitly name the exact item and price (e.g. "Italian Door for $500"). Never leave the product or price ambiguous.\n` +
+          `- VALUE EXPLANATION & OBJECTION HANDLING: If the caller asks what a payment covers, questions a price, or objects (e.g. "What is this for?" or "$250 for words"), DO NOT output [ACTION:SEND_PAYMENT_LINK] or repeat a sales line. IMMEDIATELY explain clearly what that cost includes, break down the value, and ask how they would like to proceed.\n` +
+          `- SMS CONFIRMATION: Once a payment link is dispatched, confirm warmly to the caller: "I have just sent the payment link via SMS text to your phone! Please check your text messages."`;
 
         systemPrompt += `\n\nCONCISENESS & NATURAL FLOW RULE:\nKeep responses concise, warm, and helpful (1 to 2 sentences max, around 15-25 words). Answer questions directly without long filler introductions or unnecessary preamble.`;
       }
@@ -290,18 +295,38 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !currentToken.cancelled) {
                 console.log(`[AI Payment Engine] LLM detected payment intent dynamically. Dispatching SMS checkout link...`);
                 try {
+                  const dialogueHistory = chatHistory.filter((t) => t.role !== 'system');
+                  const analysis = await this.openAiService.analyzeCallDialogue(dialogueHistory);
+
+                  let finalAmount = (analysis as any).quotedAmount;
+                  let finalService = (analysis as any).inquiredService;
+
+                  if (typeof finalAmount !== 'number' || finalAmount <= 0) {
+                    const activeDebt = await this.prisma.payment.findFirst({
+                      where: { phone: callerPhone, status: { not: 'PAID' } },
+                      orderBy: { createdAt: 'desc' },
+                    });
+                    if (activeDebt) {
+                      finalAmount = activeDebt.amount;
+                      finalService = activeDebt.inquiredService;
+                    }
+                  }
+
+                  finalAmount = typeof finalAmount === 'number' && finalAmount > 0 ? finalAmount : 500.0;
+                  finalService = finalService || 'Custom Product / Service Inquiry';
+
                   const paymentRecord = await this.paymentsService.createCheckoutLink({
                     tenantId: targetTenantId,
-                    amount: 250.0,
+                    amount: finalAmount,
                     phone: callerPhone,
-                    inquiredService: 'Utility Service Setup',
+                    inquiredService: finalService,
                     callId: callRecordId,
                     status: 'SMS_SENT',
                   });
 
                   if (paymentRecord && paymentRecord.id) {
                     await this.paymentsService.sendPaymentSms(paymentRecord.id);
-                    console.log(`[AI Payment Engine] SMS Payment Link dispatched to ${callerPhone}: ${paymentRecord.link}`);
+                    console.log(`[AI Payment Engine] SMS Payment Link dispatched ($${finalAmount} for ${finalService}) to ${callerPhone}: ${paymentRecord.link}`);
                   }
                 } catch (paymentErr) {
                   console.error('[AI Payment Engine] Failed to dispatch SMS payment link:', paymentErr);

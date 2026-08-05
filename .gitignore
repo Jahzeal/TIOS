@@ -42,6 +42,7 @@ next-env.d.ts
 # documentation & agent notes
 CLAUDE.md
 AGENTS.md
+agent.md
 project.md
 project_features.md
 upcoming_backlog.md
