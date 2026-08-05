@@ -332,11 +332,18 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }
 
-            console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, Phone: ${callerPhone}`);
+            if (speechSession && streamSid) {
+              speechSession.setStreamSid(streamSid);
+            }
+
+            console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, StreamSid: ${streamSid}, Phone: ${callerPhone}`);
             break;
           case 'media':
             if (!streamSid && data.streamSid) {
               streamSid = data.streamSid;
+            }
+            if (speechSession && streamSid) {
+              speechSession.setStreamSid(streamSid);
             }
             if (!speechSession && (streamSid || callSid)) {
               speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);

@@ -17,6 +17,12 @@ export class SpeechSession {
     this.voiceId = voiceId;
   }
 
+  public setStreamSid(streamSid: string) {
+    if (streamSid && (streamSid.startsWith('MZ') || streamSid.startsWith('stream-') || streamSid.startsWith('web-'))) {
+      this.streamSid = streamSid;
+    }
+  }
+
   public enqueueSentence(sentence: string) {
     const clean = (sentence || '')
       .replace(/\[ACTION:[A_Z0-9_]+\]/gi, '')
