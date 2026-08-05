@@ -158,8 +158,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         for await (const chunk of stream) {
           if (!isCallActive) break;
 
-          fullResponseText += chunk;
-          sentenceBuffer += chunk;
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (!content) continue;
+
+          fullResponseText += content;
+          sentenceBuffer += content;
 
           const sentencePunctuationMatch = sentenceBuffer.match(/([^.!?]+[.!?]+(?:\s+|$))/);
           if (sentencePunctuationMatch) {
@@ -240,12 +243,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       if (typeof deepgramLive.addListener === 'function') {
-        deepgramLive.addListener('transcriptReceived', handleDeepgramTranscript);
         deepgramLive.addListener('Results', handleDeepgramTranscript);
-      }
-      if (typeof deepgramLive.on === 'function') {
+      } else if (typeof deepgramLive.on === 'function') {
         deepgramLive.on('Results', handleDeepgramTranscript);
-        deepgramLive.on('transcriptReceived', handleDeepgramTranscript);
       }
     }
 

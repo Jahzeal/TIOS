@@ -83,6 +83,8 @@ export default function WebVoiceCallModal({
       const webCallSid = `web-call-${Date.now()}`;
       const wsUrl = `${wsProtocol}://${host}/stream?tenantId=web-tenant&agentId=${agentId || "default-agent"}&callSid=${webCallSid}&callerPhone=${encodeURIComponent("+1 (Web Browser)")}`;
 
+      console.log("%c[Web Voice Call Endpoint Connected]", "color: #818cf8; font-weight: bold;", wsUrl);
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -132,6 +134,9 @@ export default function WebVoiceCallModal({
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          if (data.event === "transcript") {
+            console.log("%c[Web Call Transcript]", "color: #34d399; font-weight: bold;", `${data.role}: ${data.text}`);
+          }
 
           if (data.event === "clear") {
             // Stop and disconnect all actively playing audio source nodes instantly
