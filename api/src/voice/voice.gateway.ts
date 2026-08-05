@@ -124,6 +124,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatHistory.push({ role: 'assistant', content: initialGreeting });
       console.log(`[VoiceGateway Greeting Sent]: "${initialGreeting}"`);
 
+      try {
+        ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: initialGreeting }));
+      } catch (e) {}
+
       if (speechSession) {
         speechSession.enqueueSentence(initialGreeting);
       }
@@ -139,6 +143,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       console.log(`[STT Final] Caller: "${userText}"`);
       chatHistory.push({ role: 'user', content: userText });
+
+      try {
+        ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: userText }));
+      } catch (e) {}
 
       try {
         let sentenceBuffer = '';
@@ -189,8 +197,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           }
         }
 
-        chatHistory.push({ role: 'assistant', content: fullResponseText.trim() });
-        console.log(`[AI Response Completed]: "${fullResponseText.trim()}"`);
+        const finalAiText = fullResponseText.trim();
+        chatHistory.push({ role: 'assistant', content: finalAiText });
+        console.log(`[AI Response Completed]: "${finalAiText}"`);
+
+        try {
+          ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: finalAiText }));
+        } catch (e) {}
       } catch (llmErr) {
         console.error('[VoiceGateway LLM Error]:', llmErr);
       } finally {
@@ -200,8 +213,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     deepgramLive = this.deepgramService.createDeepgramLiveStream(isWebCall);
 
-    if (deepgramLive && (deepgramLive as any).addListener) {
-      (deepgramLive as any).addListener('transcriptReceived', (transcriptData: any) => {
+    if (deepgramLive) {
+      const handleDeepgramTranscript = (transcriptData: any) => {
         if (!isCallActive) return;
 
         try {
@@ -224,7 +237,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
           }
         } catch (e) {}
-      });
+      };
+
+      if (typeof deepgramLive.addListener === 'function') {
+        deepgramLive.addListener('transcriptReceived', handleDeepgramTranscript);
+        deepgramLive.addListener('Results', handleDeepgramTranscript);
+      }
+      if (typeof deepgramLive.on === 'function') {
+        deepgramLive.on('Results', handleDeepgramTranscript);
+        deepgramLive.on('transcriptReceived', handleDeepgramTranscript);
+      }
     }
 
     let mediaChunkCount = 0;
