@@ -217,7 +217,8 @@ export default function CallbackRequestsPage() {
                 callbacks.map((call) => {
                   const displayName = call.callerName || call.tenant?.name || "Inbound Caller";
                   const rawPhone = call.callerPhone || "";
-                  const phoneDisplay = !rawPhone || rawPhone === "Unknown" ? "+1 (Web Voice Call)" : rawPhone;
+                  const isWeb = !rawPhone || rawPhone === "Unknown" || rawPhone.includes("Web") || rawPhone.includes("Inbound Phone Call");
+                  const phoneDisplay = isWeb ? "+1 (Web Voice Call)" : rawPhone;
                   const timeFormatted = call.createdAt
                     ? new Date(call.createdAt).toLocaleString("en-US", {
                         month: "short",
