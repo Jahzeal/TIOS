@@ -35,15 +35,15 @@ export class VoiceService {
       try {
         tenant = await this.prisma.tenant.create({
           data: {
-            name: 'Default Business',
+            name: 'Hive Business',
             twilioPhone: safePhone,
             forwardPhone: '+15555555555',
             agents: {
               create: {
-                name: 'Emma',
+                name: 'Hive AI Agent',
                 prompt:
-                  'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely. Keep responses under 2 sentences.',
-                voiceId: 'EXAVITQu4vr4xnSDxMaL',
+                  'You are Hive, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
+                voiceId: '21m00Tcm4TlvDq8ikWAM',
               },
             },
           },
@@ -59,9 +59,9 @@ export class VoiceService {
       try {
         agent = await this.prisma.agent.create({
           data: {
-            name: 'Emma',
-            prompt: 'You are Emma, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
-            voiceId: 'EXAVITQu4vr4xnSDxMaL',
+            name: 'Hive AI Agent',
+            prompt: 'You are Hive, a friendly 24/7 AI Receptionist. Answer questions politely and concisely.',
+            voiceId: '21m00Tcm4TlvDq8ikWAM',
             tenantId: tenant.id,
           },
         });
@@ -69,9 +69,9 @@ export class VoiceService {
         // Fallback dummy agent
         agent = {
           id: 'default-agent',
-          name: 'Emma',
-          prompt: 'You are Emma, a friendly 24/7 AI Receptionist.',
-          voiceId: 'EXAVITQu4vr4xnSDxMaL',
+          name: 'Hive AI Agent',
+          prompt: 'You are Hive, a friendly 24/7 AI Receptionist.',
+          voiceId: '21m00Tcm4TlvDq8ikWAM',
           tenantId: tenant.id,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -121,15 +121,16 @@ export class VoiceService {
     return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for calling. Goodbye.</Say><Hangup/></Response>`.trim();
   }
 
-  public async createInitialCallRecord(data: { sid: string; callerPhone: string; tenantId: string; agentId: string }) {
+  public async createInitialCallRecord(data: { sid: string; callerPhone: string; tenantId: string; agentId: string; direction?: string }) {
     if (!data.sid) return null;
+    const callDirection = (data.direction || 'INBOUND').toUpperCase();
     try {
       return await this.prisma.call.upsert({
         where: { sid: data.sid },
-        update: { callerPhone: data.callerPhone },
+        update: { callerPhone: data.callerPhone, direction: callDirection },
         create: {
           sid: data.sid,
-          direction: 'INBOUND',
+          direction: callDirection,
           status: 'IN_PROGRESS',
           callerPhone: data.callerPhone,
           tenantId: data.tenantId,

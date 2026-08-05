@@ -15,6 +15,7 @@ export class VoiceController {
   @Post('voice')
   async handleVoice(
     @Body() body: any,
+    @Query('direction') directionParam: string,
     @Headers('host') hostHeader: string,
     @Headers('x-forwarded-host') forwardedHost: string,
     @Headers('x-forwarded-proto') forwardedProto: string,
@@ -23,8 +24,9 @@ export class VoiceController {
     const toPhone = (body.To || '').toString();
     const fromPhone = (body.From || '').toString();
     const callSid = (body.CallSid || '').toString();
+    const direction = (directionParam || body.direction || 'INBOUND').toString().toUpperCase();
 
-    console.log(`[Twilio Inbound] Incoming call. CallSid: ${callSid}, From: ${fromPhone}, To: ${toPhone}`);
+    console.log(`[Twilio Inbound] Incoming call. CallSid: ${callSid}, Direction: ${direction}, From: ${fromPhone}, To: ${toPhone}`);
 
     const { tenant, agent } = await this.voiceService.getTenantAndAgent(toPhone);
 
@@ -39,7 +41,8 @@ export class VoiceController {
         callerPhone: fromPhone,
         tenantId: tenant.id,
         agentId: agent.id,
-      });
+        direction: direction,
+      } as any);
     }
 
     if (await this.voiceService.isRateLimited(fromPhone, tenant.id)) {
@@ -50,7 +53,7 @@ export class VoiceController {
 
     const host = (forwardedHost || hostHeader || `localhost:${config.port}`).split(',')[0].trim();
     const scheme = forwardedProto === 'http' && host.includes('localhost') ? 'ws' : 'wss';
-    const rawWsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}`;
+    const rawWsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}&direction=${direction}`;
     const xmlWsUrl = rawWsUrl.replace(/&/g, '&amp;');
     const xmlRedirect = `/voice/post-stream?callSid=${callSid}`.replace(/&/g, '&amp;');
 
