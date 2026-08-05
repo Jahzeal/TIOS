@@ -217,6 +217,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     deepgramLive = this.deepgramService.createDeepgramLiveStream(isWebCall);
 
     if (deepgramLive) {
+      let lastProcessedTranscript = '';
+      let lastProcessedTime = 0;
+
       const handleDeepgramTranscript = (transcriptData: any) => {
         if (!isCallActive) return;
 
@@ -225,26 +228,34 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const transcript = parsed.channel?.alternatives?.[0]?.transcript || '';
           const isFinal = parsed.is_final || false;
 
-          if (transcript.trim()) {
-            if (isFinal) {
-              accumulatedUserTranscript += ' ' + transcript;
-              if (silenceTimer) clearTimeout(silenceTimer);
-
-              silenceTimer = setTimeout(() => {
-                const finalText = accumulatedUserTranscript.trim();
-                accumulatedUserTranscript = '';
-                if (finalText) {
-                  processFinalUserUtterance(finalText);
-                }
-              }, 800);
+          if (transcript.trim() && isFinal) {
+            const now = Date.now();
+            if (transcript === lastProcessedTranscript && (now - lastProcessedTime) < 500) {
+              return; // Skip duplicate event within 500ms
             }
+            lastProcessedTranscript = transcript;
+            lastProcessedTime = now;
+
+            accumulatedUserTranscript += ' ' + transcript;
+            if (silenceTimer) clearTimeout(silenceTimer);
+
+            silenceTimer = setTimeout(() => {
+              const finalText = accumulatedUserTranscript.trim();
+              accumulatedUserTranscript = '';
+              if (finalText) {
+                processFinalUserUtterance(finalText);
+              }
+            }, 800);
           }
         } catch (e) {}
       };
 
       if (typeof deepgramLive.addListener === 'function') {
+        deepgramLive.addListener('transcriptReceived', handleDeepgramTranscript);
         deepgramLive.addListener('Results', handleDeepgramTranscript);
-      } else if (typeof deepgramLive.on === 'function') {
+      }
+      if (typeof deepgramLive.on === 'function') {
+        deepgramLive.on('transcriptReceived', handleDeepgramTranscript);
         deepgramLive.on('Results', handleDeepgramTranscript);
       }
     }
