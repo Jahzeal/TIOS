@@ -73,11 +73,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? '+1 (Web Voice Call)'
       : rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== ''
         ? rawPhone
-        : '+1 (Inbound Phone Call)';
+        : '+1 (Web Voice Call)';
 
     console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}, CallerPhone: ${callerPhone}`);
 
     let streamSid = '';
+    let trueSid = callSid;
     let callRecordId = '';
     let isCallActive = true;
     let speechSession: SpeechSession | null = null;
@@ -235,6 +236,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
               let fullResponseText = '';
               let currentSentence = '';
+              let hasDispatchedPaymentForTurn = false;
 
               for await (const chunk of stream) {
                 if (currentToken.cancelled || !isCallActive) {
@@ -297,7 +299,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 }
               }
 
-              if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !currentToken.cancelled) {
+              if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !hasDispatchedPaymentForTurn && !currentToken.cancelled) {
+                hasDispatchedPaymentForTurn = true;
                 console.log(`[AI Payment Engine] LLM detected payment intent dynamically. Dispatching SMS checkout link...`);
                 try {
                   const dialogueHistory = chatHistory.filter((t) => t.role !== 'system');
@@ -462,15 +465,16 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   if (existingCall.callerPhone) {
                     callerPhone = existingCall.callerPhone;
                   }
-                  if (paramPhone && (!callerPhone || callerPhone.includes('Inbound Phone Call'))) {
+                  if (paramPhone && paramPhone.startsWith('+')) {
                     callerPhone = paramPhone;
                     await this.prisma.call.update({
                       where: { id: callRecordId },
                       data: { callerPhone: paramPhone },
                     }).catch(() => {});
                   }
+                  console.log(`[Twilio Stream Start] Real CallSid Bound: ${trueSid}, Final CallerPhone: ${callerPhone}`);
                 } else {
-                  const finalPhone = paramPhone || callerPhone || '+1 (Inbound Phone Call)';
+                  const finalPhone = (paramPhone && paramPhone.startsWith('+')) ? paramPhone : callerPhone;
                   dbCallRecord = await this.prisma.call.create({
                     data: {
                       sid: trueSid,

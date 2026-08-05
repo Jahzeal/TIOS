@@ -356,8 +356,17 @@ export default function PaymentsPage() {
                 payments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-4 px-4">
-                      <div className="font-semibold text-white">{p.phone}</div>
-                      <div className="text-xs text-slate-400">{p.tenantName || "Hive Business"}</div>
+                      {(() => {
+                        const rawPhone = p.phone || "";
+                        const isWeb = !rawPhone || rawPhone === "Unknown" || rawPhone.includes("Web") || rawPhone.includes("Inbound Phone Call");
+                        const phoneDisplay = isWeb ? "+1 (Web Voice Call)" : rawPhone;
+                        return (
+                          <>
+                            <div className="font-semibold text-white">{phoneDisplay}</div>
+                            <div className="text-xs text-slate-400">{p.tenantName || "Hive Business"}</div>
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-200">
                       {p.inquiredService || "Utility Service Setup"}
