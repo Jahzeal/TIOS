@@ -69,10 +69,10 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
 
       const accountSid = config.twilioAccountSid || process.env.TWILIO_ACCOUNT_SID;
       const authToken = config.twilioAuthToken || process.env.TWILIO_AUTH_TOKEN;
-      const fromPhone = job.tenant?.twilioPhone || config.twilioPhoneNumber || process.env.TWILIO_PHONE_NUMBER;
+      const fromPhone = job.tenant?.twilioPhone || config.twilioPhoneNumber || process.env.TWILIO_PHONE_NUMBER || '+15876028009';
 
       if (!accountSid || !authToken || !fromPhone) {
-        console.warn(`[QueueWorkerService] Job ${job.id} postponed. Missing Twilio credentials or Twilio Phone.`);
+        console.warn(`[QueueWorkerService] Job ${job.id} postponed. Missing Twilio credentials (Sid: ${!!accountSid}, Auth: ${!!authToken}, From: ${fromPhone}).`);
         return;
       }
 

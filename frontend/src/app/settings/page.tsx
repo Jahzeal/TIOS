@@ -62,7 +62,12 @@ export default function SettingsPage() {
             setAgentName(initial.name);
             setVoiceId(initial.voiceId || "21m00Tcm4TlvDq8ikWAM");
             setSystemPrompt(initial.prompt || "");
-            setCallbackDelayHours(initial.callbackDelayHours || 24);
+            const totalMins = (initial as any).callbackDelayMinutes || ((initial as any).callbackDelayHours ? (initial as any).callbackDelayHours * 60 : 15);
+            setCallbackDelayMinutes(totalMins);
+            setCallbackDelayHours(Math.floor(totalMins / 60) || 1);
+            setCustomHoursInput(Math.floor(totalMins / 60));
+            setCustomMinsInput(totalMins % 60);
+            setIsCustomSelected(![15, 30, 60, 240, 720, 1440, 2880].includes(totalMins));
 
             setChatHistory([
               {
