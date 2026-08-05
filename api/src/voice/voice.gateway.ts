@@ -124,9 +124,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatHistory.push({ role: 'assistant', content: initialGreeting });
       console.log(`[VoiceGateway Greeting Sent]: "${initialGreeting}"`);
 
-      try {
-        ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: initialGreeting }));
-      } catch (e) {}
+      if (isWebCall) {
+        try {
+          ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: initialGreeting }));
+        } catch (e) {}
+      }
 
       if (speechSession) {
         speechSession.enqueueSentence(initialGreeting);
@@ -144,9 +146,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log(`[STT Final] Caller: "${userText}"`);
       chatHistory.push({ role: 'user', content: userText });
 
-      try {
-        ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: userText }));
-      } catch (e) {}
+      if (isWebCall) {
+        try {
+          ws.send(JSON.stringify({ event: 'transcript', role: 'user', text: userText }));
+        } catch (e) {}
+      }
 
       try {
         let sentenceBuffer = '';
@@ -204,9 +208,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         chatHistory.push({ role: 'assistant', content: finalAiText });
         console.log(`[AI Response Completed]: "${finalAiText}"`);
 
-        try {
-          ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: finalAiText }));
-        } catch (e) {}
+        if (isWebCall) {
+          try {
+            ws.send(JSON.stringify({ event: 'transcript', role: 'agent', text: finalAiText }));
+          } catch (e) {}
+        }
       } catch (llmErr) {
         console.error('[VoiceGateway LLM Error]:', llmErr);
       } finally {
@@ -216,7 +222,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     deepgramLive = this.deepgramService.createDeepgramLiveStream(isWebCall);
 
-    if (deepgramLive) {
+    if (!deepgramLive) {
+      console.warn(`[VoiceGateway STT Warning] Deepgram Live Stream returned NULL for call ${callSid}. Check DEEPGRAM_API_KEY environment variable!`);
+    } else {
       let lastProcessedTranscript = '';
       let lastProcessedTime = 0;
 
@@ -225,8 +233,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         try {
           const parsed = typeof transcriptData === 'string' ? JSON.parse(transcriptData) : transcriptData;
-          const transcript = parsed.channel?.alternatives?.[0]?.transcript || '';
-          const isFinal = parsed.is_final || false;
+          const transcript =
+            parsed.channel?.alternatives?.[0]?.transcript ||
+            parsed.alternatives?.[0]?.transcript ||
+            parsed.transcript ||
+            '';
+          const isFinal = parsed.is_final ?? parsed.isFinal ?? true;
 
           if (transcript.trim() && isFinal) {
             const now = Date.now();
@@ -235,6 +247,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
             lastProcessedTranscript = transcript;
             lastProcessedTime = now;
+
+            console.log(`[Deepgram Live STT] Captured utterance for ${callerPhone}: "${transcript.trim()}"`);
 
             accumulatedUserTranscript += ' ' + transcript;
             if (silenceTimer) clearTimeout(silenceTimer);
@@ -247,17 +261,19 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }, 800);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('[Deepgram Live STT Parse Error]:', e);
+        }
       };
 
-      if (typeof deepgramLive.addListener === 'function') {
-        deepgramLive.addListener('transcriptReceived', handleDeepgramTranscript);
-        deepgramLive.addListener('Results', handleDeepgramTranscript);
-      }
-      if (typeof deepgramLive.on === 'function') {
-        deepgramLive.on('transcriptReceived', handleDeepgramTranscript);
-        deepgramLive.on('Results', handleDeepgramTranscript);
-      }
+      ['Results', 'transcriptReceived', 'transcript', 'message'].forEach((eventName) => {
+        if (typeof deepgramLive.addListener === 'function') {
+          deepgramLive.addListener(eventName, handleDeepgramTranscript);
+        }
+        if (typeof deepgramLive.on === 'function') {
+          deepgramLive.on(eventName, handleDeepgramTranscript);
+        }
+      });
     }
 
     let mediaChunkCount = 0;
