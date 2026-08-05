@@ -104,9 +104,18 @@ export class VoiceService {
       include: { tenant: true },
     });
 
-    if (call && call.status === 'FORWARD_REQUESTED' && call.tenant?.forwardPhone) {
-      console.log(`[Emergency Routing] Dialing forward phone: ${call.tenant.forwardPhone}`);
-      return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An emergency has been detected. Forwarding you to our support staff immediately. Please hold.</Say><Dial>${call.tenant.forwardPhone}</Dial></Response>`.trim();
+    if (call) {
+      if (call.status === 'FORWARD_REQUESTED' && call.tenant?.forwardPhone) {
+        console.log(`[Emergency Routing] Dialing forward phone: ${call.tenant.forwardPhone}`);
+        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An emergency has been detected. Forwarding you to our support staff immediately. Please hold.</Say><Dial>${call.tenant.forwardPhone}</Dial></Response>`.trim();
+      }
+
+      if (call.status === 'IN_PROGRESS') {
+        await this.prisma.call.update({
+          where: { id: call.id },
+          data: { status: 'COMPLETED' },
+        }).catch((e) => console.error('[VoiceService] Failed to update post-stream call status:', e));
+      }
     }
 
     return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for calling. Goodbye.</Say><Hangup/></Response>`.trim();

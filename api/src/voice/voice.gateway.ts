@@ -127,7 +127,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
 
           if (activeDebt) {
-            systemPrompt += `\n\n[ACCOUNT CONTEXT]: The caller has an active pending invoice/quote for "${activeDebt.inquiredService || 'Utility Service Setup'}" with an outstanding balance of $${activeDebt.amount.toFixed(2)}. Status: ${activeDebt.status}. If they ask to pay or request a payment link, inform them politely and start your response with [ACTION:SEND_PAYMENT_LINK].`;
+            systemPrompt += `\n\n[PAST UNPAID INVOICE / QUOTE RULE]:\n` +
+              `The caller has an existing unpaid quote on record for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
+              `CRITICAL EXECUTION ORDER:\n` +
+              `1. PRIMARY FOCUS (100%): Always answer and conclude the caller's PRESENT inquiry first (e.g. current questions about custom doors, pricing, or new services).\n` +
+              `2. AFTER CONCLUDING PRESENT INQUIRY: Only after concluding or answering their current request, politely bring up their previous quote as a helpful add-on (e.g. "By the way, I noticed an earlier open quote on your account for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). Would you like a payment link sent for that as well?").\n` +
+              `3. IF CALLER AGREES OR ASKS TO PAY: Include the tag [ACTION:SEND_PAYMENT_LINK] at the start of your response.`;
           }
         } catch (e) {}
 
