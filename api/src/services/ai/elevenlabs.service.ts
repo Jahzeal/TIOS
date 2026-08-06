@@ -23,6 +23,17 @@ export class SpeechSession {
     }
   }
 
+  private async waitForValidStreamSid() {
+    let attempts = 0;
+    while (
+      (!this.streamSid || (!this.streamSid.startsWith('MZ') && !this.streamSid.startsWith('stream-') && !this.streamSid.startsWith('web-'))) &&
+      attempts < 10
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      attempts++;
+    }
+  }
+
   public enqueueSentence(sentence: string) {
     const clean = (sentence || '')
       .replace(/\[ACTION:[A_Z0-9_]+\]/gi, '')
@@ -72,6 +83,7 @@ export class SpeechSession {
   }
 
   private async speak(text: string, cancellation: { cancelled: boolean }, epoch: number) {
+    await this.waitForValidStreamSid();
     if (!config.elevenLabsApiKey) {
       console.log(`[ElevenLabs Simulation] Speaking: "${text}"`);
       const words = text.split(' ').length;
@@ -153,6 +165,7 @@ export class SpeechSession {
   }
 
   private async fallbackDeepgramTts(text: string, cancellation: { cancelled: boolean }, epoch: number) {
+    await this.waitForValidStreamSid();
     if (!config.deepgramApiKey) {
       console.warn('[Deepgram TTS Fallback] DEEPGRAM_API_KEY is missing.');
       return;
