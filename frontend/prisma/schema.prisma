@@ -35,6 +35,7 @@ model Agent {
   calendarEmail     String?
   callbackDelayHours Int          @default(24)
   callbackDelayMinutes Int        @default(1440)
+  callbackCadence   Json?
   tenantId          String?
   tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   calls             Call[]

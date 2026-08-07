@@ -29,15 +29,15 @@ export class SettingsService {
     }
   }
 
-  async updateAgent(id: string, data: { name?: string; prompt?: string; voiceId?: string; callbackDelayHours?: number; callbackDelayMinutes?: number }) {
+  async updateAgent(id: string, data: { name?: string; prompt?: string; voiceId?: string; callbackDelayHours?: number; callbackDelayMinutes?: number; callbackCadence?: any }) {
     try {
       const updatedAgent = await this.prisma.agent.update({
         where: { id },
-        data,
+        data: data as any,
       });
 
       // Recalculate existing PENDING jobs for this tenant if delay settings changed
-      if ((data.callbackDelayMinutes !== undefined || data.callbackDelayHours !== undefined) && updatedAgent.tenantId) {
+      if ((data.callbackDelayMinutes !== undefined || data.callbackDelayHours !== undefined || data.callbackCadence !== undefined) && updatedAgent.tenantId) {
         const delayMins = updatedAgent.callbackDelayMinutes ?? 15;
         const pendingJobs = await this.prisma.job.findMany({
           where: {

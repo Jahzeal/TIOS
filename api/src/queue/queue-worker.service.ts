@@ -67,6 +67,21 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      // 1. PAYMENT GUARD: Check if customer already paid or cancelled
+      const activePayment = await this.prisma.payment.findFirst({
+        where: { phone },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (activePayment && (activePayment.status === 'PAID' || activePayment.status === 'CANCELLED')) {
+        console.log(`[QueueWorkerService] Job ${job.id} skipped (Payment already ${activePayment.status} for ${phone}). Marking CANCELLED.`);
+        await this.prisma.job.update({
+          where: { id: job.id },
+          data: { status: 'CANCELLED', error: `Skipped because payment status is ${activePayment.status}` },
+        });
+        return;
+      }
+
       const accountSid = config.twilioAccountSid || process.env.TWILIO_ACCOUNT_SID;
       const authToken = config.twilioAuthToken || process.env.TWILIO_AUTH_TOKEN;
       const fromPhone = job.tenant?.twilioPhone || config.twilioPhoneNumber || process.env.TWILIO_PHONE_NUMBER || '+15876028009';
@@ -76,13 +91,14 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
+      const currentStep = payload.step || 1;
       const host = process.env.RENDER_EXTERNAL_URL || `http://localhost:${config.port}`;
       const serviceParam = encodeURIComponent((payload.inquiredService || payload.service || '').toString());
       const amountParam = payload.amount || 0;
       const intentParam = encodeURIComponent((payload.intentType || payload.intent || 'PAYMENT_LINK').toString());
       const callbackWebhookUrl = `${host}/voice?direction=OUTBOUND&tenantId=${tenantId || ''}&service=${serviceParam}&amount=${amountParam}&intent=${intentParam}`;
 
-      console.log(`[QueueWorkerService] Triggering Twilio Outbound Call for Job ${job.id} to ${phone} (Webhook: ${callbackWebhookUrl})...`);
+      console.log(`[QueueWorkerService] Triggering Twilio Outbound Call (Step ${currentStep}) for Job ${job.id} to ${phone} (Webhook: ${callbackWebhookUrl})...`);
 
       const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
       const bodyParams = new URLSearchParams();
@@ -101,7 +117,7 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
 
       if (twilioRes.ok) {
         const resData: any = await twilioRes.json();
-        console.log(`[QueueWorkerService] Twilio Outbound Call dispatched! CallSid: ${resData.sid}`);
+        console.log(`[QueueWorkerService] Twilio Outbound Call (Step ${currentStep}) dispatched! CallSid: ${resData.sid}`);
 
         await this.prisma.job.update({
           where: { id: job.id },
@@ -110,6 +126,37 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
             attempts: job.attempts + 1,
           },
         });
+
+        // Schedule next step in cadence if configured
+        try {
+          const agent = await this.prisma.agent.findFirst({
+            where: tenantId ? { tenantId } : undefined,
+          });
+
+          const cadence: any[] = Array.isArray(agent?.callbackCadence) ? (agent.callbackCadence as any[]) : [];
+          const nextStepConfig = cadence.find((c) => Number(c.step) === currentStep + 1);
+
+          if (nextStepConfig && nextStepConfig.delayMinutes > 0) {
+            const nextDelayMs = Number(nextStepConfig.delayMinutes) * 60 * 1000;
+            const nextAvailableAt = new Date(Date.now() + nextDelayMs);
+
+            await this.prisma.job.create({
+              data: {
+                queueName: 'OUTBOUND_CALLBACK',
+                tenantId,
+                availableAt: nextAvailableAt,
+                payload: {
+                  ...payload,
+                  step: currentStep + 1,
+                },
+              },
+            });
+
+            console.log(`[QueueWorkerService] Scheduled Multi-Touch Cadence Step ${currentStep + 1} for ${phone} in ${nextStepConfig.delayMinutes} minutes.`);
+          }
+        } catch (cadenceErr) {
+          console.error('[QueueWorkerService] Failed to schedule next cadence step:', cadenceErr);
+        }
       } else {
         const errText = await twilioRes.text();
         console.error(`[QueueWorkerService] Twilio Call Dispatch Failed for Job ${job.id}:`, errText);

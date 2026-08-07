@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Sliders, Save, Send, Bot, CheckCircle, Activity, RefreshCw } from "lucide-react";
+import { Sliders, Save, Send, Bot, CheckCircle, Activity, RefreshCw, Plus, Trash2, PhoneCall, Clock } from "lucide-react";
 
 interface ApiAgent {
   id: string;
@@ -10,6 +10,7 @@ interface ApiAgent {
   prompt: string;
   phoneNumber?: string | null;
   tenantId?: string | null;
+  callbackCadence?: any;
   tenant?: {
     id: string;
     name: string;
@@ -23,17 +24,25 @@ interface ChatTurn {
   timestamp: string;
 }
 
+interface CadenceStepItem {
+  step: number;
+  value: number;
+  unit: "MINUTES" | "HOURS" | "DAYS";
+}
+
 export default function SettingsPage() {
   const [agents, setAgents] = useState<ApiAgent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [systemPrompt, setSystemPrompt] = useState<string>("");
   const [agentName, setAgentName] = useState<string>("");
   const [voiceId, setVoiceId] = useState<string>("");
-  const [callbackDelayHours, setCallbackDelayHours] = useState<number>(24);
-  const [callbackDelayMinutes, setCallbackDelayMinutes] = useState<number>(1440);
-  const [customHoursInput, setCustomHoursInput] = useState<number>(1);
-  const [customMinsInput, setCustomMinsInput] = useState<number>(30);
-  const [isCustomSelected, setIsCustomSelected] = useState<boolean>(false);
+
+  // Cadence State
+  const [cadenceSteps, setCadenceSteps] = useState<CadenceStepItem[]>([
+    { step: 1, value: 15, unit: "MINUTES" },
+    { step: 2, value: 24, unit: "HOURS" },
+    { step: 3, value: 48, unit: "HOURS" },
+  ]);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +53,26 @@ export default function SettingsPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  const parseCadenceToItems = (cadenceRaw: any): CadenceStepItem[] => {
+    if (Array.isArray(cadenceRaw) && cadenceRaw.length > 0) {
+      return cadenceRaw.map((item: any, idx: number) => {
+        const mins = Number(item.delayMinutes) || 15;
+        if (mins % 1440 === 0) {
+          return { step: idx + 1, value: mins / 1440, unit: "DAYS" };
+        } else if (mins % 60 === 0) {
+          return { step: idx + 1, value: mins / 60, unit: "HOURS" };
+        } else {
+          return { step: idx + 1, value: mins, unit: "MINUTES" };
+        }
+      });
+    }
+    return [
+      { step: 1, value: 15, unit: "MINUTES" },
+      { step: 2, value: 24, unit: "HOURS" },
+      { step: 3, value: 48, unit: "HOURS" },
+    ];
+  };
 
   // Load agents on initial render
   useEffect(() => {
@@ -62,12 +91,7 @@ export default function SettingsPage() {
             setAgentName(initial.name);
             setVoiceId(initial.voiceId || "21m00Tcm4TlvDq8ikWAM");
             setSystemPrompt(initial.prompt || "");
-            const totalMins = (initial as any).callbackDelayMinutes || ((initial as any).callbackDelayHours ? (initial as any).callbackDelayHours * 60 : 15);
-            setCallbackDelayMinutes(totalMins);
-            setCallbackDelayHours(Math.floor(totalMins / 60) || 1);
-            setCustomHoursInput(Math.floor(totalMins / 60));
-            setCustomMinsInput(totalMins % 60);
-            setIsCustomSelected(![15, 30, 60, 240, 720, 1440, 2880].includes(totalMins));
+            setCadenceSteps(parseCadenceToItems(initial.callbackCadence));
 
             setChatHistory([
               {
@@ -83,7 +107,6 @@ export default function SettingsPage() {
             setAgentName("");
             setVoiceId("");
             setSystemPrompt("");
-            setCallbackDelayHours(24);
             setIsLive(true);
           }
         } else {
@@ -109,18 +132,49 @@ export default function SettingsPage() {
       setAgentName(agent.name);
       setVoiceId(agent.voiceId || "21m00Tcm4TlvDq8ikWAM");
       setSystemPrompt(agent.prompt || "");
-      const totalMins = (agent as any).callbackDelayMinutes || ((agent as any).callbackDelayHours ? (agent as any).callbackDelayHours * 60 : 1440);
-      setCallbackDelayMinutes(totalMins);
-      setCallbackDelayHours(Math.floor(totalMins / 60) || 1);
-      setCustomHoursInput(Math.floor(totalMins / 60));
-      setCustomMinsInput(totalMins % 60);
-      setIsCustomSelected(![15, 30, 60, 240, 720, 1440, 2880].includes(totalMins));
+      setCadenceSteps(parseCadenceToItems(agent.callbackCadence));
     }
+  };
+
+  const handleAddCadenceStep = () => {
+    setCadenceSteps((prev) => {
+      const nextStepNum = prev.length + 1;
+      return [...prev, { step: nextStepNum, value: 24 * (nextStepNum - 1), unit: "HOURS" }];
+    });
+  };
+
+  const handleRemoveCadenceStep = (index: number) => {
+    setCadenceSteps((prev) => {
+      const filtered = prev.filter((_, idx) => idx !== index);
+      return filtered.map((item, idx) => ({ ...item, step: idx + 1 }));
+    });
+  };
+
+  const handleCadenceStepChange = (index: number, field: "value" | "unit", val: any) => {
+    setCadenceSteps((prev) => {
+      const copy = [...prev];
+      if (field === "value") {
+        copy[index].value = Math.max(1, Number(val));
+      } else {
+        copy[index].unit = val;
+      }
+      return copy;
+    });
   };
 
   const handleSave = async () => {
     if (!selectedAgentId) return;
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+    // Convert cadence items to delayMinutes
+    const callbackCadence = cadenceSteps.map((s, idx) => {
+      let mins = s.value;
+      if (s.unit === "HOURS") mins = s.value * 60;
+      if (s.unit === "DAYS") mins = s.value * 1440;
+      return { step: idx + 1, delayMinutes: mins };
+    });
+
+    const firstDelayMins = callbackCadence[0]?.delayMinutes || 15;
 
     try {
       setIsSaving(true);
@@ -131,8 +185,9 @@ export default function SettingsPage() {
           name: agentName,
           prompt: systemPrompt,
           voiceId: voiceId,
-          callbackDelayHours: Math.ceil(callbackDelayMinutes / 60),
-          callbackDelayMinutes: Number(callbackDelayMinutes),
+          callbackDelayMinutes: firstDelayMins,
+          callbackDelayHours: Math.ceil(firstDelayMins / 60),
+          callbackCadence: callbackCadence,
         }),
       });
 
@@ -140,10 +195,10 @@ export default function SettingsPage() {
         const updated = await res.json();
         setAgents((prev) => prev.map((a) => (a.id === selectedAgentId ? { ...a, ...updated } : a)));
         setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 3000);
+        setTimeout(() => setSavedSuccess(false), 4000);
       }
     } catch (err) {
-      console.warn("Failed to update agent settings:", err);
+      console.error("Failed to save agent settings:", err);
     } finally {
       setIsSaving(false);
     }
@@ -211,7 +266,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">AI Agent Settings & Prompt Tester</h1>
           <p className="text-xs text-slate-400">
-            Configure system persona, voice synthesis IDs, and test system prompt responses in real time.
+            Configure system persona, voice synthesis IDs, custom call cadence timing, and test prompt responses in real time.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -239,7 +294,7 @@ export default function SettingsPage() {
       {savedSuccess && (
         <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-semibold flex items-center space-x-2">
           <CheckCircle className="h-4 w-4" />
-          <span>Agent configuration and prompt instructions updated successfully in backend database!</span>
+          <span>Agent configuration and multi-touch call cadence updated successfully in database!</span>
         </div>
       )}
 
@@ -248,7 +303,7 @@ export default function SettingsPage() {
         <div className="lg:col-span-7 bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-5">
           <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
             <Sliders className="h-5 w-5 text-indigo-400" />
-            <h2 className="text-base font-bold text-white">Agent Persona & Voice Tuning</h2>
+            <h2 className="text-base font-bold text-white">Agent Persona & Cadence Tuning</h2>
           </div>
 
           {isLoading ? (
@@ -280,7 +335,7 @@ export default function SettingsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Agent Name
@@ -303,146 +358,143 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Automated Callback Timing
-                  </label>
-                  <div className="space-y-2">
-                    <select
-                      value={isCustomSelected || ![15, 30, 60, 240, 720, 1440, 2880].includes(callbackDelayMinutes) ? -1 : callbackDelayMinutes}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        if (val === -1) {
-                          setIsCustomSelected(true);
-                          const total = customHoursInput * 60 + customMinsInput;
-                          setCallbackDelayMinutes(total > 0 ? total : 1);
-                        } else {
-                          setIsCustomSelected(false);
-                          setCallbackDelayMinutes(val);
-                          setCallbackDelayHours(Math.ceil(val / 60));
-                        }
-                      }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
-                    >
-                      <option value={15}>After 15 Minutes</option>
-                      <option value={30}>After 30 Minutes</option>
-                      <option value={60}>After 1 Hour (60 mins)</option>
-                      <option value={240}>After 4 Hours</option>
-                      <option value={720}>After 12 Hours</option>
-                      <option value={1440}>After 24 Hours (1 Day)</option>
-                      <option value={2880}>After 48 Hours (2 Days)</option>
-                      <option value={-1}>Custom Hours &amp; Minutes...</option>
-                    </select>
+              </div>
 
-                    {(isCustomSelected || ![15, 30, 60, 240, 720, 1440, 2880].includes(callbackDelayMinutes)) && (
-                      <div className="flex items-center space-x-2 pt-1">
-                        <div className="flex-1">
-                          <label className="block text-[10px] text-slate-400 mb-1 font-semibold">Hours</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={720}
-                            value={customHoursInput}
-                            onChange={(e) => {
-                              const hrs = Math.max(0, Number(e.target.value));
-                              setCustomHoursInput(hrs);
-                              const total = hrs * 60 + customMinsInput;
-                              setCallbackDelayMinutes(total > 0 ? total : 1);
-                            }}
-                            placeholder="Hours"
-                            className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-[10px] text-slate-400 mb-1 font-semibold">Minutes</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={59}
-                            value={customMinsInput}
-                            onChange={(e) => {
-                              const mins = Math.max(0, Math.min(59, Number(e.target.value)));
-                              setCustomMinsInput(mins);
-                              const total = customHoursInput * 60 + mins;
-                              setCallbackDelayMinutes(total > 0 ? total : 1);
-                            }}
-                            placeholder="Mins"
-                            className="w-full bg-slate-950 border border-indigo-500/60 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
-                          />
-                        </div>
-                      </div>
-                    )}
+              {/* Multi-Touch Follow-Up Call Cadence Builder */}
+              <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-indigo-400" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      Automated Multi-Touch Call Cadence
+                    </span>
                   </div>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Auto-cancels if paid
+                  </span>
                 </div>
+                <p className="text-xs text-slate-400">
+                  Configure sequential follow-up calls. If a customer hasn&apos;t paid, the AI will place follow-up calls according to these steps.
+                </p>
+
+                <div className="space-y-2.5 pt-1">
+                  {cadenceSteps.map((stepItem, index) => (
+                    <div key={index} className="flex items-center space-x-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                      <div className="flex items-center space-x-1.5 min-w-[85px]">
+                        <PhoneCall className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-xs font-bold text-white">Call {stepItem.step}</span>
+                      </div>
+
+                      <div className="flex-1 flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={10000}
+                          value={stepItem.value}
+                          onChange={(e) => handleCadenceStepChange(index, "value", e.target.value)}
+                          className="w-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-bold text-white text-center focus:outline-none focus:border-indigo-500"
+                        />
+                        <select
+                          value={stepItem.unit}
+                          onChange={(e) => handleCadenceStepChange(index, "unit", e.target.value)}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="MINUTES">Minutes after inquiry</option>
+                          <option value="HOURS">Hours after inquiry</option>
+                          <option value="DAYS">Days after inquiry</option>
+                        </select>
+                      </div>
+
+                      {cadenceSteps.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCadenceStep(index)}
+                          className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                          title="Remove Call Step"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddCadenceStep}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 text-indigo-400 hover:text-indigo-300 font-semibold text-xs rounded-xl transition-all border border-indigo-500/30 flex items-center justify-center space-x-2 mt-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Call {cadenceSteps.length + 1} Step</span>
+                </button>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  System Instruction Prompt
+                  System Persona Prompt Instructions
                 </label>
                 <textarea
-                  rows={8}
+                  rows={9}
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono leading-relaxed"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Instructions dictate how GPT-4o-mini responds to callers. Keep prompt under 300 words for optimal voice turn latency.
-                </p>
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-indigo-500"
+                ></textarea>
               </div>
             </>
           )}
         </div>
 
-        {/* Live Prompt Tester Simulator Column */}
-        <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between h-[600px]">
-          <div>
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-800 mb-4">
-              <Bot className="h-5 w-5 text-purple-400" />
-              <h2 className="text-base font-bold text-white">Live OpenAI Prompt Simulator</h2>
+        {/* Real-time LLM Prompt Tester Column */}
+        <div className="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between min-h-[580px]">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
+              <Bot className="h-5 w-5 text-emerald-400" />
+              <h2 className="text-base font-bold text-white">Live System Prompt Simulator</h2>
             </div>
+            <p className="text-xs text-slate-400">
+              Test how your agent responds to customer questions, objections, or payment link requests with your active prompt instructions and Knowledge Base.
+            </p>
 
-            {/* Dialogue history */}
-            <div className="space-y-3 h-[420px] overflow-y-auto pr-2">
-              {chatHistory.map((turn, idx) => (
-                <div key={idx} className={`flex ${turn.role === "agent" ? "justify-start" : "justify-end"}`}>
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 pt-2">
+              {chatHistory.map((turn, i) => (
+                <div
+                  key={i}
+                  className={`flex flex-col ${turn.role === "user" ? "items-end" : "items-start"}`}
+                >
                   <div
-                    className={`max-w-xs p-3 rounded-xl text-xs leading-relaxed ${
-                      turn.role === "agent"
-                        ? "bg-slate-800 text-slate-200 border border-slate-700/60"
-                        : "bg-indigo-600 text-white"
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs shadow-sm ${
+                      turn.role === "user"
+                        ? "bg-indigo-600 text-white rounded-br-none"
+                        : "bg-slate-950 border border-slate-800 text-slate-200 rounded-bl-none"
                     }`}
                   >
-                    <div className="font-semibold text-[10px] text-slate-400 mb-1">
-                      {turn.role === "agent" ? (agentName || "AI Receptionist") : "User"} • {turn.timestamp}
-                    </div>
-                    {turn.text}
+                    <p className="leading-relaxed">{turn.text}</p>
+                    <span className="block text-[10px] text-slate-400 mt-1 text-right">{turn.timestamp}</span>
                   </div>
                 </div>
               ))}
               {isSimulating && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-800 p-3 rounded-xl text-xs text-slate-400 animate-pulse">
-                    AI Assistant is generating response...
+                <div className="flex items-start space-x-2">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-400 animate-pulse">
+                    AI Agent is typing response...
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Input Box */}
-          <form onSubmit={handleSendMessage} className="flex items-center space-x-2 pt-3 border-t border-slate-800">
+          <form onSubmit={handleSendMessage} className="pt-4 border-t border-slate-800 flex items-center space-x-2">
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Test prompt response live..."
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              placeholder="Ask agent a question or request a payment link..."
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
             <button
               type="submit"
-              disabled={isSimulating}
-              className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all disabled:opacity-50"
+              disabled={isSimulating || !chatInput.trim()}
+              className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-md disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
             </button>
