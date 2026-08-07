@@ -332,23 +332,24 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }
 
-            if (speechSession && streamSid) {
+            // Create speechSession here so it always has a valid MZ... streamSid from the start
+            if (!speechSession && streamSid) {
+              speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
+            } else if (speechSession && streamSid) {
               speechSession.setStreamSid(streamSid);
             }
+
+            // Trigger greeting now that we have a valid streamSid
+            triggerGreeting();
 
             console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, StreamSid: ${streamSid}, Phone: ${callerPhone}`);
             break;
           case 'media':
+            // Update streamSid if we somehow missed 'start' (safety net)
             if (!streamSid && data.streamSid) {
               streamSid = data.streamSid;
+              if (speechSession) speechSession.setStreamSid(streamSid);
             }
-            if (speechSession && streamSid) {
-              speechSession.setStreamSid(streamSid);
-            }
-            if (!speechSession && (streamSid || callSid)) {
-              speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid || callSid, voiceId);
-            }
-            triggerGreeting();
             mediaChunkCount++;
             if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
               console.log(`[VoiceGateway Media] Audio chunk #${mediaChunkCount} received.`);
