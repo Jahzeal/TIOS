@@ -59,9 +59,11 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Use CA... callSid from Twilio, or generate fallback
     const callSid = callSidQuery || `call-${Date.now()}`;
     const rawPhone = decodeURIComponent(callerPhoneQuery);
+    const initialDigits = (rawPhone || '').replace(/\D/g, '');
     let callerPhone = rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== '' && !rawPhone.toLowerCase().includes('web')
-      ? rawPhone
+      ? (rawPhone.startsWith('+') ? rawPhone : initialDigits.length >= 10 ? `+${initialDigits.length === 10 ? '1' + initialDigits : initialDigits}` : rawPhone)
       : 'Unknown Caller';
+
 
     console.log(`[Twilio VoiceGateway] Connected. CallSid: ${callSid}, Tenant: ${tenantId}, Phone: ${callerPhone}`);
 
@@ -280,13 +282,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           case 'start': {
             streamSid = data.start?.streamSid || '';
             const customParams = data.start?.customParameters || {};
-            const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
-            trueSid = data.start?.callSid || customParams.callSid || callSid;
+            
+            const rawParamPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from || getQueryParam('callerPhone');
+            const cleanDigits = (rawParamPhone || '').replace(/\D/g, '');
+            const normalizedPhone = rawParamPhone && rawParamPhone.startsWith('+')
+              ? rawParamPhone
+              : cleanDigits.length >= 10
+                ? `+${cleanDigits.length === 10 ? '1' + cleanDigits : cleanDigits}`
+                : rawParamPhone;
 
-            // Update callerPhone from customParameters if available
-            if (paramPhone && paramPhone.startsWith('+')) {
-              callerPhone = paramPhone;
+            if (normalizedPhone && !normalizedPhone.toLowerCase().includes('web') && normalizedPhone !== 'Unknown') {
+              callerPhone = normalizedPhone;
             }
+
+            trueSid = data.start?.callSid || customParams.callSid || callSid;
 
             if (targetAgentId) {
               try {
@@ -298,28 +307,28 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 if (existingCall) {
                   dbCallRecord = existingCall;
                   callRecordId = existingCall.id;
-                  if (existingCall.callerPhone) callerPhone = existingCall.callerPhone;
-                  if (paramPhone && paramPhone.startsWith('+')) {
-                    callerPhone = paramPhone;
+                  
+                  // Prefer valid phone from existing call or update if we now have a resolved phone number
+                  if (existingCall.callerPhone && existingCall.callerPhone !== 'Unknown Caller' && !existingCall.callerPhone.includes('Web Voice')) {
+                    callerPhone = existingCall.callerPhone;
+                  } else if (callerPhone && callerPhone !== 'Unknown Caller') {
                     await this.prisma.call.update({
                       where: { id: callRecordId },
-                      data: { callerPhone: paramPhone },
+                      data: { callerPhone: callerPhone },
                     }).catch(() => {});
                   }
                 } else {
-                  const finalPhone = (paramPhone && paramPhone.startsWith('+')) ? paramPhone : callerPhone;
                   dbCallRecord = await this.prisma.call.create({
                     data: {
                       sid: trueSid,
                       direction: isOutbound ? 'OUTBOUND' : 'INBOUND',
                       status: 'IN_PROGRESS',
-                      callerPhone: finalPhone,
+                      callerPhone: callerPhone || 'Unknown Caller',
                       agentId: targetAgentId,
                       tenantId: targetTenantId || undefined,
                     },
                   });
                   callRecordId = dbCallRecord.id;
-                  callerPhone = finalPhone;
                 }
               } catch (err) {
                 console.error('[VoiceGateway Start] Call binding failed:', err);
