@@ -45,8 +45,13 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const callerPhoneQuery = getQueryParam('callerPhone');
     const directionQuery = getQueryParam('direction').toUpperCase();
 
+    // A real Twilio call always passes the CA... callSid in the WebSocket URL.
+    // Web browser calls use our generated fallback 'call-TIMESTAMP' ID.
+    // We detect web calls by whether the callSid starts with 'call-' (our generated fallback)
+    // NOT by checking callerPhone, which Twilio may not reliably pass via WebSocket query params.
     const isWebCall =
-      !callerPhoneQuery ||
+      !callSidQuery ||
+      callSidQuery.startsWith('call-') ||
       callerPhoneQuery.toLowerCase().includes('web') ||
       decodeURIComponent(callerPhoneQuery).toLowerCase().includes('web');
 
@@ -58,7 +63,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? '+1 (Web Voice Call)'
       : rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== ''
         ? rawPhone
-        : '+1 (Web Voice Call)';
+        : 'Unknown Caller';
 
     console.log(`[WebSocket Stream (NestJS)] Connected. CallSid: ${callSid}, Tenant: ${tenantId}, CallerPhone: ${callerPhone}`);
 
