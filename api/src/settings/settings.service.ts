@@ -36,9 +36,9 @@ export class SettingsService {
         data: data as any,
       });
 
-      // Recalculate existing PENDING jobs for this tenant if delay settings changed
+      // Recalculate existing PENDING jobs for this tenant if delay/cadence settings changed
       if ((data.callbackDelayMinutes !== undefined || data.callbackDelayHours !== undefined || data.callbackCadence !== undefined) && updatedAgent.tenantId) {
-        const delayMins = updatedAgent.callbackDelayMinutes ?? 15;
+        const cadence: any[] = Array.isArray((updatedAgent as any).callbackCadence) ? ((updatedAgent as any).callbackCadence as any[]) : [];
         const pendingJobs = await this.prisma.job.findMany({
           where: {
             tenantId: updatedAgent.tenantId,
@@ -48,6 +48,11 @@ export class SettingsService {
         });
 
         for (const job of pendingJobs) {
+          const payload = (job.payload as any) || {};
+          const currentStep = payload.step || 1;
+          const stepConfig = cadence.find((c) => Number(c.step) === currentStep) || cadence[0];
+          const delayMins = stepConfig ? (Number(stepConfig.delayMinutes) || 15) : (updatedAgent.callbackDelayMinutes ?? 15);
+
           const newAvailableAt = new Date(job.createdAt.getTime() + delayMins * 60 * 1000);
           await this.prisma.job.update({
             where: { id: job.id },

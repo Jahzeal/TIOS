@@ -150,14 +150,37 @@ export default function SettingsPage() {
     });
   };
 
+  const getUnitLimits = (unit: "MINUTES" | "HOURS" | "DAYS") => {
+    if (unit === "MINUTES") return { min: 1, max: 60 };
+    if (unit === "HOURS") return { min: 1, max: 24 };
+    return { min: 1, max: 31 };
+  };
+
   const handleCadenceStepChange = (index: number, field: "value" | "unit", val: any) => {
     setCadenceSteps((prev) => {
       const copy = [...prev];
       if (field === "value") {
-        copy[index].value = Math.max(1, Number(val));
+        copy[index].value = val;
       } else {
-        copy[index].unit = val;
+        const newUnit = val as "MINUTES" | "HOURS" | "DAYS";
+        copy[index].unit = newUnit;
+        const limits = getUnitLimits(newUnit);
+        const numVal = Number(copy[index].value) || 1;
+        if (numVal > limits.max) copy[index].value = limits.max;
       }
+      return copy;
+    });
+  };
+
+  const handleCadenceStepBlur = (index: number) => {
+    setCadenceSteps((prev) => {
+      const copy = [...prev];
+      const item = copy[index];
+      const limits = getUnitLimits(item.unit);
+      let numVal = parseInt(String(item.value), 10);
+      if (isNaN(numVal) || numVal < limits.min) numVal = limits.min;
+      if (numVal > limits.max) numVal = limits.max;
+      copy[index].value = numVal;
       return copy;
     });
   };
@@ -378,45 +401,50 @@ export default function SettingsPage() {
                 </p>
 
                 <div className="space-y-2.5 pt-1">
-                  {cadenceSteps.map((stepItem, index) => (
-                    <div key={index} className="flex items-center space-x-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
-                      <div className="flex items-center space-x-1.5 min-w-[85px]">
-                        <PhoneCall className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-xs font-bold text-white">Call {stepItem.step}</span>
-                      </div>
+                  {cadenceSteps.map((stepItem, index) => {
+                    const limits = getUnitLimits(stepItem.unit);
 
-                      <div className="flex-1 flex items-center space-x-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={10000}
-                          value={stepItem.value}
-                          onChange={(e) => handleCadenceStepChange(index, "value", e.target.value)}
-                          className="w-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-bold text-white text-center focus:outline-none focus:border-indigo-500"
-                        />
-                        <select
-                          value={stepItem.unit}
-                          onChange={(e) => handleCadenceStepChange(index, "unit", e.target.value)}
-                          className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500"
-                        >
-                          <option value="MINUTES">Minutes after inquiry</option>
-                          <option value="HOURS">Hours after inquiry</option>
-                          <option value="DAYS">Days after inquiry</option>
-                        </select>
-                      </div>
+                    return (
+                      <div key={index} className="flex items-center space-x-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                        <div className="flex items-center space-x-1.5 min-w-[85px]">
+                          <PhoneCall className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="text-xs font-bold text-white">Call {stepItem.step}</span>
+                        </div>
 
-                      {cadenceSteps.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCadenceStep(index)}
-                          className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
-                          title="Remove Call Step"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                        <div className="flex-1 flex items-center space-x-2">
+                          <input
+                            type="number"
+                            min={limits.min}
+                            max={limits.max}
+                            value={stepItem.value}
+                            onChange={(e) => handleCadenceStepChange(index, "value", e.target.value)}
+                            onBlur={() => handleCadenceStepBlur(index)}
+                            className="w-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-bold text-white text-center focus:outline-none focus:border-indigo-500"
+                          />
+                          <select
+                            value={stepItem.unit}
+                            onChange={(e) => handleCadenceStepChange(index, "unit", e.target.value)}
+                            className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="MINUTES">Minutes after inquiry (1-60)</option>
+                            <option value="HOURS">Hours after inquiry (1-24)</option>
+                            <option value="DAYS">Days after inquiry (1-31)</option>
+                          </select>
+                        </div>
+
+                        {cadenceSteps.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCadenceStep(index)}
+                            className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Remove Call Step"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <button
