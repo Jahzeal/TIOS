@@ -129,7 +129,7 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
 
         // Schedule next step in cadence if configured
         try {
-          const agent = await this.prisma.agent.findFirst({
+          const agent: any = await this.prisma.agent.findFirst({
             where: tenantId ? { tenantId } : undefined,
           });
 
