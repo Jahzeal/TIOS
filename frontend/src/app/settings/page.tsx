@@ -160,7 +160,15 @@ export default function SettingsPage() {
     setCadenceSteps((prev) => {
       const copy = [...prev];
       if (field === "value") {
-        copy[index].value = val;
+        if (val === "" || val === null || val === undefined) {
+          copy[index].value = "";
+        } else {
+          const limits = getUnitLimits(copy[index].unit);
+          const numVal = parseInt(String(val), 10);
+          if (!isNaN(numVal)) {
+            copy[index].value = Math.min(limits.max, Math.max(0, numVal));
+          }
+        }
       } else {
         const newUnit = val as "MINUTES" | "HOURS" | "DAYS";
         copy[index].unit = newUnit;
@@ -191,9 +199,14 @@ export default function SettingsPage() {
 
     // Convert cadence items to delayMinutes
     const callbackCadence = cadenceSteps.map((s, idx) => {
-      let mins = s.value;
-      if (s.unit === "HOURS") mins = s.value * 60;
-      if (s.unit === "DAYS") mins = s.value * 1440;
+      const limits = getUnitLimits(s.unit);
+      let numVal = parseInt(String(s.value), 10);
+      if (isNaN(numVal) || numVal < limits.min) numVal = limits.min;
+      if (numVal > limits.max) numVal = limits.max;
+
+      let mins = numVal;
+      if (s.unit === "HOURS") mins = numVal * 60;
+      if (s.unit === "DAYS") mins = numVal * 1440;
       return { step: idx + 1, delayMinutes: mins };
     });
 
