@@ -14,16 +14,15 @@ import { VoicePromptBuilderService } from './voice-prompt-builder.service';
 import { VoiceActionHandlerService } from './voice-action-handler.service';
 
 /**
- * VoiceGateway — handles REAL Twilio phone calls ONLY.
- * Path: /stream
+ * WebVoiceGateway — handles BROWSER-BASED test calls ONLY.
+ * Path: /stream/web
  *
- * Strict Twilio Media Streams protocol:
- *  - ONLY sends 'media', 'mark', 'clear' frames back to Twilio
- *  - Never sends 'transcript' or any custom event type
- *  - Eliminates Twilio Error 31951 by structural guarantee
+ * This gateway is separate from VoiceGateway (/stream) which handles real Twilio calls.
+ * This separation guarantees that 'transcript' events NEVER reach Twilio's WebSocket.
+ * This gateway will be removed once web-based testing is no longer needed.
  */
-@WebSocketGateway({ path: '/stream' })
-export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
+@WebSocketGateway({ path: '/stream/web' })
+export class WebVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(OpenAiService) private readonly openAiService: OpenAiService,
@@ -51,47 +50,22 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const tenantIdQuery = getQueryParam('tenantId');
     const agentIdQuery = getQueryParam('agentId');
     const callSidQuery = getQueryParam('callSid');
-    const callerPhoneQuery = getQueryParam('callerPhone');
-    const directionQuery = getQueryParam('direction').toUpperCase();
 
     let tenantId = tenantIdQuery;
     const agentId = agentIdQuery;
-    // Use CA... callSid from Twilio, or generate fallback
-    const callSid = callSidQuery || `call-${Date.now()}`;
-    const rawPhone = decodeURIComponent(callerPhoneQuery);
-    let callerPhone = rawPhone && rawPhone !== 'Unknown' && rawPhone !== 'undefined' && rawPhone !== '' && !rawPhone.toLowerCase().includes('web')
-      ? rawPhone
-      : 'Unknown Caller';
+    const callSid = callSidQuery || `web-call-${Date.now()}`;
+    const callerPhone = '+1 (Web Voice Call)';
 
-    console.log(`[Twilio VoiceGateway] Connected. CallSid: ${callSid}, Tenant: ${tenantId}, Phone: ${callerPhone}`);
+    console.log(`[WebVoiceGateway] Browser call connected. CallSid: ${callSid}, Tenant: ${tenantId}`);
 
     let streamSid = '';
-    let trueSid = callSid;
     let callRecordId = '';
     let isCallActive = true;
     let speechSession: SpeechSession | null = null;
     let deepgramLive: any = null;
     const startTime = Date.now();
 
-    // ===== Register message handler IMMEDIATELY to buffer all Twilio events =====
-    // Twilio sends 'connected' and 'start' within milliseconds of WebSocket open.
-    // All async setup (DB lookups, prompt building) runs AFTER this registration.
-    // Buffered messages are replayed in order once setup is complete.
-    const messageBuffer: any[] = [];
-    let isSetupComplete = false;
-    let onMessageReady: ((msg: any) => void) | null = null;
-
-    ws.on('message', (rawMsg: any) => {
-      if (!isSetupComplete) {
-        messageBuffer.push(rawMsg);
-      } else if (onMessageReady) {
-        onMessageReady(rawMsg);
-      }
-    });
-    // ===========================================================================
-
     const chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
-
     let activeAgent: any = null;
     let targetAgentId = agentId;
     let targetTenantId = tenantId;
@@ -106,22 +80,20 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!activeAgent) {
         activeAgent = await this.prisma.agent.findFirst({ include: { tenant: true } });
       }
-
       if (activeAgent) {
         targetAgentId = activeAgent.id;
         targetTenantId = activeAgent.tenantId || tenantId;
       }
     } catch (err) {
-      console.error('[VoiceGateway] Agent lookup error:', err);
+      console.error('[WebVoiceGateway] Agent lookup error:', err);
     }
 
     const voiceId = activeAgent?.voiceId || '21m00Tcm4TlvDq8ikWAM';
-    const isOutbound = directionQuery === 'OUTBOUND';
 
     const systemPrompt = await this.promptBuilderService.buildSystemPrompt({
       activeAgent,
       callerPhone,
-      isOutbound,
+      isOutbound: false,
     });
 
     chatHistory.push({ role: 'system', content: systemPrompt });
@@ -130,20 +102,25 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let accumulatedUserTranscript = '';
     let silenceTimer: NodeJS.Timeout | null = null;
     let hasDispatchedGreeting = false;
-    let dbCallRecord: any = null;
+
+    const sendTranscript = (role: 'agent' | 'user', text: string) => {
+      try {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ event: 'transcript', role, text }));
+        }
+      } catch (e) {}
+    };
 
     const triggerGreeting = () => {
       if (hasDispatchedGreeting || !isCallActive) return;
       hasDispatchedGreeting = true;
 
-      const initialGreeting = isOutbound
-        ? `Hello! This is ${activeAgent?.tenant?.name || 'Hive'} following up on your earlier quote inquiry. How are you doing today?`
-        : `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
-
+      const initialGreeting = `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
       chatHistory.push({ role: 'assistant', content: initialGreeting });
-      console.log(`[VoiceGateway Greeting Sent]: "${initialGreeting}"`);
+      console.log(`[WebVoiceGateway Greeting]: "${initialGreeting}"`);
 
-      // ONLY enqueue to SpeechSession — NO custom event types sent to Twilio WebSocket
+      sendTranscript('agent', initialGreeting);
+
       if (speechSession) {
         speechSession.enqueueSentence(initialGreeting);
       }
@@ -155,8 +132,9 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (speechSession) speechSession.interrupt();
 
-      console.log(`[STT Final] Caller: "${userText}"`);
+      console.log(`[WebVoiceGateway STT] User: "${userText}"`);
       chatHistory.push({ role: 'user', content: userText });
+      sendTranscript('user', userText);
 
       try {
         let sentenceBuffer = '';
@@ -174,17 +152,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           fullResponseText += content;
           sentenceBuffer += content;
 
-          const sentencePunctuationMatch = sentenceBuffer.match(/([^.!?]+[.!?]+(?:\s+|$))/);
-          if (sentencePunctuationMatch) {
-            const completeSentence = sentencePunctuationMatch[1].trim();
-            sentenceBuffer = sentenceBuffer.slice(sentencePunctuationMatch[0].length);
-
-            if (completeSentence) {
-              const cleanSentence = completeSentence.replace(/\[ACTION:[^\]]+\]/g, '').trim();
-              if (cleanSentence && speechSession) {
-                speechSession.enqueueSentence(cleanSentence);
-              }
-            }
+          const match = sentenceBuffer.match(/([^.!?]+[.!?]+(?:\s+|$))/);
+          if (match) {
+            const completeSentence = match[1].trim();
+            sentenceBuffer = sentenceBuffer.slice(match[0].length);
+            const clean = completeSentence.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+            if (clean && speechSession) speechSession.enqueueSentence(clean);
           }
 
           if (fullResponseText.includes('[ACTION:SEND_PAYMENT_LINK]') && !hasDispatchedPaymentForTurn) {
@@ -204,26 +177,27 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         if (sentenceBuffer.trim() && isCallActive && speechSession) {
-          const cleanSentence = sentenceBuffer.replace(/\[ACTION:[^\]]+\]/g, '').trim();
-          if (cleanSentence) speechSession.enqueueSentence(cleanSentence);
+          const clean = sentenceBuffer.replace(/\[ACTION:[^\]]+\]/g, '').trim();
+          if (clean) speechSession.enqueueSentence(clean);
         }
 
         const finalAiText = fullResponseText.trim();
         chatHistory.push({ role: 'assistant', content: finalAiText });
-        console.log(`[AI Response Completed]: "${finalAiText}"`);
+        console.log(`[WebVoiceGateway AI]: "${finalAiText}"`);
+        sendTranscript('agent', finalAiText);
 
       } catch (llmErr) {
-        console.error('[VoiceGateway LLM Error]:', llmErr);
+        console.error('[WebVoiceGateway LLM Error]:', llmErr);
       } finally {
         isProcessingLlm = false;
       }
     };
 
-    // Deepgram STT — telephone mode (nova-2, mulaw 8000Hz)
-    deepgramLive = this.deepgramService.createDeepgramLiveStream(false);
+    // Deepgram STT — web/browser mode (nova-2, WebM audio)
+    deepgramLive = this.deepgramService.createDeepgramLiveStream(true);
 
     if (!deepgramLive) {
-      console.warn(`[VoiceGateway] Deepgram Live Stream NULL for ${callSid}. Check DEEPGRAM_API_KEY.`);
+      console.warn('[WebVoiceGateway] Deepgram Live Stream NULL. Check DEEPGRAM_API_KEY.');
     } else {
       let lastProcessedTranscript = '';
       let lastProcessedTime = 0;
@@ -235,8 +209,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const transcript =
             parsed.channel?.alternatives?.[0]?.transcript ||
             parsed.alternatives?.[0]?.transcript ||
-            parsed.transcript ||
-            '';
+            parsed.transcript || '';
           const isFinal = parsed.is_final ?? parsed.isFinal ?? true;
 
           if (transcript.trim() && isFinal) {
@@ -245,7 +218,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             lastProcessedTranscript = transcript;
             lastProcessedTime = now;
 
-            console.log(`[Deepgram STT] "${transcript.trim()}" from ${callerPhone}`);
             accumulatedUserTranscript += ' ' + transcript;
             if (silenceTimer) clearTimeout(silenceTimer);
 
@@ -256,7 +228,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }, 800);
           }
         } catch (e) {
-          console.error('[Deepgram STT Parse Error]:', e);
+          console.error('[WebVoiceGateway Deepgram Error]:', e);
         }
       };
 
@@ -266,130 +238,51 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    let mediaChunkCount = 0;
-
-    const processMessage = async (message: any) => {
+    ws.on('message', async (message: any) => {
       try {
         const data = JSON.parse(message.toString());
 
         switch (data.event) {
-          case 'connected':
-            console.log(`[Twilio Connected] Protocol: ${data.protocol}`);
-            break;
-
-          case 'start': {
-            streamSid = data.start?.streamSid || '';
-            const customParams = data.start?.customParameters || {};
-            const paramPhone = customParams.callerPhone || customParams.callerphone || customParams.From || customParams.from;
-            trueSid = data.start?.callSid || customParams.callSid || callSid;
-
-            // Update callerPhone from customParameters if available
-            if (paramPhone && paramPhone.startsWith('+')) {
-              callerPhone = paramPhone;
-            }
-
-            if (targetAgentId) {
-              try {
-                let existingCall = await this.prisma.call.findUnique({ where: { sid: trueSid } });
-                if (!existingCall && callSid && callSid !== trueSid) {
-                  existingCall = await this.prisma.call.findUnique({ where: { sid: callSid } });
-                }
-
-                if (existingCall) {
-                  dbCallRecord = existingCall;
-                  callRecordId = existingCall.id;
-                  if (existingCall.callerPhone) callerPhone = existingCall.callerPhone;
-                  if (paramPhone && paramPhone.startsWith('+')) {
-                    callerPhone = paramPhone;
-                    await this.prisma.call.update({
-                      where: { id: callRecordId },
-                      data: { callerPhone: paramPhone },
-                    }).catch(() => {});
-                  }
-                } else {
-                  const finalPhone = (paramPhone && paramPhone.startsWith('+')) ? paramPhone : callerPhone;
-                  dbCallRecord = await this.prisma.call.create({
-                    data: {
-                      sid: trueSid,
-                      direction: isOutbound ? 'OUTBOUND' : 'INBOUND',
-                      status: 'IN_PROGRESS',
-                      callerPhone: finalPhone,
-                      agentId: targetAgentId,
-                      tenantId: targetTenantId || undefined,
-                    },
-                  });
-                  callRecordId = dbCallRecord.id;
-                  callerPhone = finalPhone;
-                }
-              } catch (err) {
-                console.error('[VoiceGateway Start] Call binding failed:', err);
-              }
-            }
-
-            // Create SpeechSession with guaranteed valid MZ... streamSid
-            if (!speechSession && streamSid) {
+          case 'start':
+            streamSid = data.start?.streamSid || `stream-${callSid}`;
+            if (!speechSession) {
               speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
-            } else if (speechSession && streamSid) {
-              speechSession.setStreamSid(streamSid);
             }
-
+            speechSession.setStreamSid(streamSid);
             triggerGreeting();
-            console.log(`[Twilio Start] CallSid: ${trueSid}, StreamSid: ${streamSid}, Phone: ${callerPhone}`);
+            console.log(`[WebVoiceGateway Start] StreamSid: ${streamSid}`);
             break;
-          }
 
           case 'media': {
-            // Safety net: recover streamSid from media if start was somehow missed
-            if (data.streamSid && !streamSid) {
-              streamSid = data.streamSid;
-              console.warn(`[VoiceGateway] Recovered streamSid from media: ${streamSid}`);
-            }
-            if (!speechSession && streamSid) {
+            if (!speechSession) {
+              streamSid = streamSid || `stream-${callSid}`;
               speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
               speechSession.setStreamSid(streamSid);
               triggerGreeting();
-            } else if (speechSession && streamSid) {
-              speechSession.setStreamSid(streamSid);
-            }
-
-            mediaChunkCount++;
-            if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
-              console.log(`[VoiceGateway Media] Chunk #${mediaChunkCount}`);
             }
 
             if (isCallActive && deepgramLive) {
               try {
+                // Browser sends base64 WebM audio
                 const rawAudio = Buffer.from(data.media.payload, 'base64');
                 if (typeof deepgramLive.send === 'function') deepgramLive.send(rawAudio);
               } catch (err) {
-                console.error('[Deepgram Send Error]:', err);
+                console.error('[WebVoiceGateway Deepgram Send Error]:', err);
               }
             }
             break;
           }
-
-          case 'stop':
-            console.log('[Twilio Stop] Media stream stopped.');
-            break;
 
           default:
             break;
         }
       } catch (err) {
-        console.error('[VoiceGateway Message Error]:', err);
+        console.error('[WebVoiceGateway Message Error]:', err);
       }
-    };
-
-    // Setup complete — flush buffered messages then wire live handler
-    isSetupComplete = true;
-    onMessageReady = processMessage;
-    for (const buffered of messageBuffer) {
-      await processMessage(buffered);
-    }
-    messageBuffer.length = 0;
+    });
 
     ws.on('close', async () => {
-      console.log('[Twilio VoiceGateway] Connection closed.');
+      console.log('[WebVoiceGateway] Browser call disconnected.');
       isCallActive = false;
 
       if (deepgramLive && typeof deepgramLive.finish === 'function') {
@@ -399,7 +292,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.actionHandlerService.finalizeCallSummary({
         callRecordId,
         callSid,
-        trueSid,
+        trueSid: callSid,
         chatHistory,
         startTime,
         callerPhone,
@@ -409,6 +302,6 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(ws: WebSocket) {
-    console.log('[Twilio VoiceGateway] Client disconnected.');
+    console.log('[WebVoiceGateway] Browser client disconnected.');
   }
 }

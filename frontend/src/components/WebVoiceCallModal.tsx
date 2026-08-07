@@ -81,7 +81,7 @@ export default function WebVoiceCallModal({
       const host = API_BASE_URL.replace(/^https?:\/\//, "");
 
       const webCallSid = `web-call-${Date.now()}`;
-      const wsUrl = `${wsProtocol}://${host}/stream?tenantId=web-tenant&agentId=${agentId || "default-agent"}&callSid=${webCallSid}&callerPhone=${encodeURIComponent("+1 (Web Browser)")}`;
+      const wsUrl = `${wsProtocol}://${host}/stream/web?tenantId=web-tenant&agentId=${agentId || "default-agent"}&callSid=${webCallSid}`;
 
       console.log("%c[Web Voice Call Endpoint Connected]", "color: #818cf8; font-weight: bold;", wsUrl);
 
