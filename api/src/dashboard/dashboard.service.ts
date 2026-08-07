@@ -59,10 +59,38 @@ export class DashboardService {
   async getRecentCalls(limit = 5) {
     try {
       const take = Math.max(1, Math.min(50, Number(limit) || 5));
-      return await this.prisma.call.findMany({
+      const calls = await this.prisma.call.findMany({
         take,
         orderBy: { createdAt: 'desc' },
         include: { tenant: true, agent: true },
+      });
+
+      // Match payment status for each call by callId or callerPhone
+      const callIds = calls.map((c) => c.id).filter(Boolean);
+      const phones = calls.map((c) => c.callerPhone).filter(Boolean);
+
+      const payments = await this.prisma.payment.findMany({
+        where: {
+          OR: [
+            { callId: { in: callIds } },
+            { phone: { in: phones } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return calls.map((call) => {
+        const matchedPayment = payments.find(
+          (p) => p.callId === call.id || (p.phone && p.phone === call.callerPhone),
+        );
+
+        return {
+          ...call,
+          paymentStatus: matchedPayment ? matchedPayment.status : 'NO_QUOTE',
+          paymentAmount: matchedPayment ? matchedPayment.amount : null,
+          paymentService: matchedPayment ? matchedPayment.inquiredService : null,
+          paymentLink: matchedPayment ? matchedPayment.link : null,
+        };
       });
     } catch (err) {
       return [];

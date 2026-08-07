@@ -66,10 +66,37 @@ export class CallsService {
       }),
     ]);
 
+    const callIds = data.map((c) => c.id).filter(Boolean);
+    const phones = data.map((c) => c.callerPhone).filter(Boolean);
+
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        OR: [
+          { callId: { in: callIds } },
+          { phone: { in: phones } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const enriched = data.map((call) => {
+      const matchedPayment = payments.find(
+        (p) => p.callId === call.id || (p.phone && p.phone === call.callerPhone),
+      );
+
+      return {
+        ...call,
+        paymentStatus: matchedPayment ? matchedPayment.status : 'NO_QUOTE',
+        paymentAmount: matchedPayment ? matchedPayment.amount : null,
+        paymentService: matchedPayment ? matchedPayment.inquiredService : null,
+        paymentLink: matchedPayment ? matchedPayment.link : null,
+      };
+    });
+
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data,
+      data: enriched,
       meta: {
         total,
         page,
@@ -82,9 +109,28 @@ export class CallsService {
   }
 
   async findOne(id: string) {
-    return this.prisma.call.findUnique({
+    const call = await this.prisma.call.findUnique({
       where: { id },
       include: { tenant: true, agent: true },
     });
+    if (!call) return null;
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        OR: [
+          { callId: call.id },
+          { phone: call.callerPhone },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      ...call,
+      paymentStatus: payment ? payment.status : 'NO_QUOTE',
+      paymentAmount: payment ? payment.amount : null,
+      paymentService: payment ? payment.inquiredService : null,
+      paymentLink: payment ? payment.link : null,
+    };
   }
 }

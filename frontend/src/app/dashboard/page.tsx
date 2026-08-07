@@ -262,6 +262,7 @@ export default function DashboardPage() {
                 <th className="py-3 px-4">Caller</th>
                 <th className="py-3 px-4">Type</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Payment Status</th>
                 <th className="py-3 px-4">Duration</th>
                 <th className="py-3 px-4">Time</th>
                 <th className="py-3 px-4">Summary</th>
@@ -272,19 +273,19 @@ export default function DashboardPage() {
               {isLoading ? (
                 [...Array(3)].map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={7} className="py-4 px-4">
+                    <td colSpan={8} className="py-4 px-4">
                       <div className="h-4 bg-slate-800 rounded w-full"></div>
                     </td>
                   </tr>
                 ))
               ) : recentCalls.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                  <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
                     No recent calls logged yet.
                   </td>
                 </tr>
               ) : (
-                recentCalls.map((call) => {
+                recentCalls.map((call: any) => {
                   const rawPhone = call.callerPhone || "";
                   const isWeb = !rawPhone || rawPhone === "Unknown" || rawPhone.includes("Web");
                   const phoneDisplay = isWeb ? "+1 (Web Voice Call)" : rawPhone;
@@ -298,6 +299,9 @@ export default function DashboardPage() {
                         hour12: true,
                       })
                     : "—";
+
+                  const payStatus = call.paymentStatus || "NO_QUOTE";
+                  const payAmount = call.paymentAmount ? `$${call.paymentAmount}` : "";
 
                   return (
                     <tr key={call.id} className="hover:bg-slate-800/40 transition-colors">
@@ -326,6 +330,21 @@ export default function DashboardPage() {
                           }`}
                         >
                           {call.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            payStatus === "PAID"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold"
+                              : payStatus === "SMS_SENT"
+                              ? "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                              : payStatus === "PENDING_QUOTE"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-slate-800/80 text-slate-400"
+                          }`}
+                        >
+                          {payStatus === "PAID" ? `PAID (${payAmount})` : payStatus === "SMS_SENT" ? `SMS SENT (${payAmount})` : payStatus === "PENDING_QUOTE" ? `QUOTE (${payAmount})` : "NO QUOTE"}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-slate-400 font-mono">{call.duration}s</td>

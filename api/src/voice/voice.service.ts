@@ -105,9 +105,14 @@ export class VoiceService {
     });
 
     if (call) {
-      if (call.status === 'FORWARD_REQUESTED' && call.tenant?.forwardPhone) {
-        console.log(`[Emergency Routing] Dialing forward phone: ${call.tenant.forwardPhone}`);
-        return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An emergency has been detected. Forwarding you to our support staff immediately. Please hold.</Say><Dial>${call.tenant.forwardPhone}</Dial></Response>`.trim();
+      if (call.status === 'FORWARD_REQUESTED') {
+        if (call.tenant?.forwardPhone) {
+          console.log(`[Emergency/Callback Routing] Dialing forward phone: ${call.tenant.forwardPhone}`);
+          return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>A representative is being connected to your line immediately. Please hold.</Say><Dial>${call.tenant.forwardPhone}</Dial></Response>`.trim();
+        } else {
+          console.log(`[Callback Request] No forward phone configured. Sending Hangup TwiML.`);
+          return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you. A representative has been notified and will call you back shortly. Goodbye.</Say><Hangup/></Response>`.trim();
+        }
       }
 
       if (call.status === 'IN_PROGRESS') {

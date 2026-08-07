@@ -31,10 +31,32 @@ export class SettingsService {
 
   async updateAgent(id: string, data: { name?: string; prompt?: string; voiceId?: string; callbackDelayHours?: number; callbackDelayMinutes?: number }) {
     try {
-      return await this.prisma.agent.update({
+      const updatedAgent = await this.prisma.agent.update({
         where: { id },
         data,
       });
+
+      // Recalculate existing PENDING jobs for this tenant if delay settings changed
+      if ((data.callbackDelayMinutes !== undefined || data.callbackDelayHours !== undefined) && updatedAgent.tenantId) {
+        const delayMins = updatedAgent.callbackDelayMinutes ?? 15;
+        const pendingJobs = await this.prisma.job.findMany({
+          where: {
+            tenantId: updatedAgent.tenantId,
+            queueName: 'OUTBOUND_CALLBACK',
+            status: 'PENDING',
+          },
+        });
+
+        for (const job of pendingJobs) {
+          const newAvailableAt = new Date(job.createdAt.getTime() + delayMins * 60 * 1000);
+          await this.prisma.job.update({
+            where: { id: job.id },
+            data: { availableAt: newAvailableAt },
+          }).catch(() => {});
+        }
+      }
+
+      return updatedAgent;
     } catch (err) {
       return null;
     }

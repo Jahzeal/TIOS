@@ -77,9 +77,12 @@ export class QueueWorkerService implements OnModuleInit, OnModuleDestroy {
       }
 
       const host = process.env.RENDER_EXTERNAL_URL || `http://localhost:${config.port}`;
-      const callbackWebhookUrl = `${host}/voice?direction=OUTBOUND&tenantId=${tenantId || ''}`;
+      const serviceParam = encodeURIComponent((payload.inquiredService || payload.service || '').toString());
+      const amountParam = payload.amount || 0;
+      const intentParam = encodeURIComponent((payload.intentType || payload.intent || 'PAYMENT_LINK').toString());
+      const callbackWebhookUrl = `${host}/voice?direction=OUTBOUND&tenantId=${tenantId || ''}&service=${serviceParam}&amount=${amountParam}&intent=${intentParam}`;
 
-      console.log(`[QueueWorkerService] Triggering Twilio Outbound Call for Job ${job.id} to ${phone}...`);
+      console.log(`[QueueWorkerService] Triggering Twilio Outbound Call for Job ${job.id} to ${phone} (Webhook: ${callbackWebhookUrl})...`);
 
       const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
       const bodyParams = new URLSearchParams();

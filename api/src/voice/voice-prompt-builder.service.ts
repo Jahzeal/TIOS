@@ -1,16 +1,78 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+export interface OutboundContext {
+  inquiredService?: string;
+  amount?: number;
+  intentType?: string; // 'PAYMENT_LINK' | 'QUOTE' | 'APPOINTMENT' | 'GENERAL_CALLBACK'
+}
+
 @Injectable()
 export class VoicePromptBuilderService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  public async getOutboundGreeting(params: {
+    activeAgent: any;
+    callerPhone: string;
+    outboundContext?: OutboundContext;
+  }): Promise<string> {
+    const { activeAgent, callerPhone, outboundContext } = params;
+    const businessName = activeAgent?.tenant?.name || 'Hive';
+
+    // 1. Check passed outboundContext or query database for recent interaction
+    let service = outboundContext?.inquiredService;
+    let amount = outboundContext?.amount;
+    let intent = outboundContext?.intentType;
+
+    if (!service || !amount) {
+      try {
+        const activeDebt = await this.prisma.payment.findFirst({
+          where: { phone: callerPhone },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (activeDebt) {
+          service = service || activeDebt.inquiredService || 'your quote';
+          amount = amount || activeDebt.amount;
+          intent = intent || (activeDebt.status === 'PAID' ? 'GENERAL_CALLBACK' : 'PAYMENT_LINK');
+        }
+      } catch (e) {}
+    }
+
+    if (!service) {
+      try {
+        const lastCall = await this.prisma.call.findFirst({
+          where: { callerPhone },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (lastCall?.summary) {
+          service = lastCall.summary.slice(0, 40);
+          intent = intent || 'GENERAL_CALLBACK';
+        }
+      } catch (e) {}
+    }
+
+    const priceText = amount ? ` ($${Number(amount).toFixed(2)})` : '';
+    const cleanService = service || 'your earlier inquiry';
+
+    if (intent === 'PAYMENT_LINK') {
+      return `Hi! This is ${businessName} following up on the payment link we sent via text for your ${cleanService}${priceText}. I wanted to check if you had any questions or needed help completing your payment?`;
+    } else if (intent === 'QUOTE') {
+      return `Hi! This is ${businessName} following up on the quote inquiry you requested for ${cleanService}${priceText}. I wanted to check if you had any questions or if you would like to proceed with your order?`;
+    } else if (intent === 'APPOINTMENT') {
+      return `Hi! This is ${businessName} following up on your appointment request. I wanted to confirm your preferred date and time?`;
+    } else {
+      return `Hi! This is ${businessName} returning your call regarding ${cleanService}. How can I assist you today?`;
+    }
+  }
 
   public async buildSystemPrompt(params: {
     activeAgent: any;
     callerPhone: string;
     isOutbound: boolean;
+    outboundContext?: OutboundContext;
   }): Promise<string> {
-    const { activeAgent, callerPhone, isOutbound } = params;
+    const { activeAgent, callerPhone, isOutbound, outboundContext } = params;
+    const businessName = activeAgent?.tenant?.name || 'Hive';
 
     let systemPrompt = activeAgent?.prompt || 'You are a helpful AI receptionist.';
 
@@ -28,23 +90,37 @@ export class VoicePromptBuilderService {
       }
     }
 
-    systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! One of our representatives will give you a call back shortly on this number. Thank you for reaching out, and have a wonderful day!"`;
+    systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! A representative will give you a call back shortly. Thank you, and have a wonderful day!"`;
 
     if (isOutbound) {
+      // Fetch latest interaction history from database if context not passed explicitly
+      let activeDebt: any = null;
+      let lastCall: any = null;
+
       try {
-        const activeDebt = await this.prisma.payment.findFirst({
-          where: { phone: callerPhone, status: { not: 'PAID' } },
+        activeDebt = await this.prisma.payment.findFirst({
+          where: { phone: callerPhone },
           orderBy: { createdAt: 'desc' },
         });
-
-        if (activeDebt) {
-          systemPrompt += `\n\nOUTBOUND FOLLOW-UP CALLBACK RULE:\n` +
-            `You are calling the customer back to follow up on their earlier quote for "${activeDebt.inquiredService || 'Service'}" ($${activeDebt.amount.toFixed(2)}).\n` +
-            `- Greet the customer warmly and state the reason for your follow-up call (e.g. "Hi there! I'm following up on your earlier quote for ${activeDebt.inquiredService} ($${activeDebt.amount.toFixed(2)}). I wanted to see if you had any questions or if you would like a secure payment link sent to finalize your order?").\n` +
-            `- If they AGREE or ask to pay, output [ACTION:SEND_PAYMENT_LINK] at the start of your response, naming the exact item and amount.\n` +
-            `- If they DECLINE or ask about a NEW product, switch immediately to their new inquiry and do NOT force the old quote.`;
-        }
+        lastCall = await this.prisma.call.findFirst({
+          where: { callerPhone },
+          orderBy: { createdAt: 'desc' },
+        });
       } catch (e) {}
+
+      const serviceName = outboundContext?.inquiredService || activeDebt?.inquiredService || 'your quote';
+      const amountVal = outboundContext?.amount || activeDebt?.amount || 0;
+      const amountText = amountVal > 0 ? ` ($${Number(amountVal).toFixed(2)})` : '';
+      const summaryText = lastCall?.summary ? ` Previous call summary: "${lastCall.summary}".` : '';
+
+      systemPrompt += `\n\nUNIVERSAL OUTBOUND FOLLOW-UP PERSONA & RULES:\n` +
+        `You are placing an automated follow-up call on behalf of ${businessName}.${summaryText}\n` +
+        `Target Inquiry: "${serviceName}"${amountText}.\n` +
+        `1. PROACTIVE OUTBOUND IDENTITY: You are calling OUT to the customer. NEVER say "Thank you for calling" or ask "Why did you call us?". You initiated this call to assist them.\n` +
+        `2. CONTEXT-AWARE ASSISTANCE: If they have an active quote or payment link for ${serviceName}${amountText}, check if they have questions or need assistance completing it.\n` +
+        `3. SMS PAYMENT DISPATCH: If the customer asks to pay or requests the checkout link again, output [ACTION:SEND_PAYMENT_LINK] at the start of your response, specifying "${serviceName}" and $${amountVal}.\n` +
+        `4. TOPIC PIVOT SAFETY: If the customer declines or asks about a totally new product/topic, pivot immediately to their new topic and do NOT push the old quote.\n` +
+        `5. CLEAN CLOSING & NO REPETITION: Once the caller indicates they are done ("Thanks", "Bye", "All good", "Okay"), respond warmly: "Thank you for choosing ${businessName}! Have a wonderful day!" and stop asking further questions.`;
     } else {
       systemPrompt += `\n\nINBOUND SALES RECEPTIONIST RULE:\n` +
         `1. CLEAN INQUIRY ANSWERING (100% FOCUS): Answer all caller questions about products, services, features, and pricing directly and cleanly. NEVER append unsolicited payment link offers or past debt reminders to simple price or information inquiries.\n` +

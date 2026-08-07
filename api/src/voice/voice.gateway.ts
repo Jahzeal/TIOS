@@ -134,16 +134,36 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let hasDispatchedGreeting = false;
     let dbCallRecord: any = null;
 
-    const triggerGreeting = () => {
+    const triggerGreeting = async () => {
       if (hasDispatchedGreeting || !isCallActive) return;
       hasDispatchedGreeting = true;
 
-      const initialGreeting = isOutbound
-        ? `Hello! This is ${activeAgent?.tenant?.name || 'Hive'} following up on your earlier quote inquiry. How are you doing today?`
-        : `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
+      const dynamicIsOutbound = isOutbound || (directionQuery || '').toUpperCase() === 'OUTBOUND' || (dbCallRecord?.direction || '').toUpperCase() === 'OUTBOUND';
+
+      let initialGreeting = `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
+
+      if (dynamicIsOutbound) {
+        try {
+          const serviceParam = getQueryParam('inquiredService') || getQueryParam('service');
+          const amountParam = parseFloat(getQueryParam('amount') || '0');
+          const intentParam = getQueryParam('intentType') || getQueryParam('intent');
+
+          initialGreeting = await this.promptBuilderService.getOutboundGreeting({
+            activeAgent,
+            callerPhone,
+            outboundContext: {
+              inquiredService: serviceParam || undefined,
+              amount: isNaN(amountParam) || amountParam === 0 ? undefined : amountParam,
+              intentType: intentParam || undefined,
+            },
+          });
+        } catch (e) {
+          initialGreeting = `Hello! This is ${activeAgent?.tenant?.name || 'Hive'} following up on your earlier inquiry. How are you doing today?`;
+        }
+      }
 
       chatHistory.push({ role: 'assistant', content: initialGreeting });
-      console.log(`[VoiceGateway Greeting Sent]: "${initialGreeting}"`);
+      console.log(`[VoiceGateway Greeting Sent] (Outbound: ${dynamicIsOutbound}): "${initialGreeting}"`);
 
       // ONLY enqueue to SpeechSession — NO custom event types sent to Twilio WebSocket
       if (speechSession) {
