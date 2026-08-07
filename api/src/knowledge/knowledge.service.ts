@@ -1,9 +1,71 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { INDUSTRY_KB_TEMPLATES, KbTemplatePack } from './kb-templates.data';
 
 @Injectable()
 export class KnowledgeService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  getTemplates(): KbTemplatePack[] {
+    return INDUSTRY_KB_TEMPLATES;
+  }
+
+  async importTemplate(data: { templateId: string; tenantId?: string; tenantName?: string }) {
+    const template = INDUSTRY_KB_TEMPLATES.find((t) => t.id === data.templateId);
+    if (!template) {
+      throw new NotFoundException(`Template '${data.templateId}' not found.`);
+    }
+
+    let tenantId = data.tenantId;
+
+    if (!tenantId && data.tenantName) {
+      const tenant = await this.prisma.tenant.findFirst({ where: { name: data.tenantName } });
+      if (tenant) tenantId = tenant.id;
+    }
+
+    if (!tenantId) {
+      let firstTenant = await this.prisma.tenant.findFirst();
+      if (!firstTenant) {
+        firstTenant = await this.prisma.tenant.create({
+          data: {
+            name: data.tenantName || 'Default Tenant',
+            twilioPhone: '+15550000000',
+          },
+        });
+      }
+      tenantId = firstTenant.id;
+    }
+
+    const createdEntries = await Promise.all(
+      template.entries.map((item) =>
+        this.prisma.knowledgeBase.create({
+          data: {
+            tenantId,
+            question: item.question,
+            answer: item.answer,
+          },
+          include: { tenant: true },
+        }),
+      ),
+    );
+
+    const formatted = createdEntries.map((e) => ({
+      id: e.id,
+      tenantId: e.tenantId,
+      tenantName: e.tenant?.name || 'Default Business',
+      question: e.question,
+      answer: e.answer,
+      createdAt: e.createdAt,
+    }));
+
+    return {
+      success: true,
+      templateId: template.id,
+      templateName: template.name,
+      importedCount: formatted.length,
+      entries: formatted,
+    };
+  }
 
   async findAll(params: { page?: number; limit?: number; search?: string }) {
     const page = Math.max(1, Number(params.page) || 1);

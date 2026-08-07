@@ -18,6 +18,16 @@ export class KnowledgeController {
     });
   }
 
+  @Get('templates')
+  getTemplates() {
+    return this.knowledgeService.getTemplates();
+  }
+
+  @Post('import-template')
+  importTemplate(@Body() body: { templateId: string; tenantId?: string; tenantName?: string }) {
+    return this.knowledgeService.importTemplate(body);
+  }
+
   @Post()
   create(@Body() body: { tenantId?: string; tenantName?: string; question: string; answer: string }) {
     return this.knowledgeService.create(body);

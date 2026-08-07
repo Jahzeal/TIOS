@@ -1,7 +1,25 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Search, Building2, Trash2, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Building2,
+  Trash2,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Scale,
+  Stethoscope,
+  UtensilsCrossed,
+  Wrench,
+  Server,
+  Layers,
+  CheckCircle2,
+  X,
+  BookOpen,
+} from "lucide-react";
 
 interface KbEntry {
   id: string;
@@ -26,6 +44,25 @@ interface PaginationMeta {
   hasPrevPage: boolean;
 }
 
+interface TemplatePack {
+  id: string;
+  name: string;
+  category: string;
+  iconName: string;
+  description: string;
+  entries: { question: string; answer: string }[];
+}
+
+// Industry icons map
+const ICON_MAP: Record<string, React.ReactNode> = {
+  Scale: <Scale className="h-5 w-5 text-amber-400" />,
+  Stethoscope: <Stethoscope className="h-5 w-5 text-rose-400" />,
+  UtensilsCrossed: <UtensilsCrossed className="h-5 w-5 text-orange-400" />,
+  Building2: <Building2 className="h-5 w-5 text-emerald-400" />,
+  Wrench: <Wrench className="h-5 w-5 text-sky-400" />,
+  Server: <Server className="h-5 w-5 text-indigo-400" />,
+};
+
 export default function KnowledgeBasePage() {
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [tenants, setTenants] = useState<TenantItem[]>([]);
@@ -44,11 +81,19 @@ export default function KnowledgeBasePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
 
-  // Modal State
+  // Single Entry Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [selectedTenantName, setSelectedTenantName] = useState("");
+
+  // Industry Template Modal State
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templates, setTemplates] = useState<TemplatePack[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("law-accounting");
+  const [importingTenantName, setImportingTenantName] = useState<string>("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -68,63 +113,81 @@ export default function KnowledgeBasePage() {
         const res = await fetch(`${API_BASE_URL}/tenants`);
         if (res.ok) {
           const result = await res.json();
-          const tenantList = Array.isArray(result) ? result : (result.data || []);
+          const tenantList = Array.isArray(result) ? result : result.data || [];
           if (tenantList.length > 0) {
             setTenants(tenantList);
             setSelectedTenantName(tenantList[0].name);
+            setImportingTenantName(tenantList[0].name);
           }
         }
-      } catch (e) {
-        // tenant list fallback handled gracefully
-      }
+      } catch (e) {}
     }
     fetchTenants();
   }, []);
 
-  // Fetch knowledge base entries on page, filter, or search change
+  // Fetch available template packs from NestJS backend
   useEffect(() => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-    async function fetchKbEntries() {
+    async function fetchTemplates() {
       try {
-        setIsLoading(true);
-        const params = new URLSearchParams();
-        params.append("page", page.toString());
-        params.append("limit", "10");
-
-        if (debouncedSearch.trim()) {
-          params.append("search", debouncedSearch.trim());
-        }
-
-        const res = await fetch(`${API_BASE_URL}/knowledge-base?${params.toString()}`);
+        const res = await fetch(`${API_BASE_URL}/knowledge-base/templates`);
         if (res.ok) {
-          const result = await res.json();
-          const dataList = Array.isArray(result) ? result : result.data || [];
-          const metaData = result.meta || {
-            total: dataList.length,
-            page: 1,
-            limit: 10,
-            totalPages: 1,
-            hasNextPage: false,
-            hasPrevPage: false,
-          };
-
-          setEntries(dataList);
-          setMeta(metaData);
-          setIsLive(true);
-        } else {
-          setEntries([]);
-          setIsLive(false);
+          const list = await res.json();
+          setTemplates(list);
+          if (list.length > 0) {
+            setSelectedTemplateId(list[0].id);
+          }
         }
-      } catch (err) {
-        console.warn("Failed to fetch knowledge base from NestJS backend:", err);
+      } catch (e) {}
+    }
+    fetchTemplates();
+  }, []);
+
+  // Fetch knowledge base entries on page, filter, or search change
+  const fetchKbEntries = async () => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", "10");
+
+      if (debouncedSearch.trim()) {
+        params.append("search", debouncedSearch.trim());
+      }
+
+      const res = await fetch(`${API_BASE_URL}/knowledge-base?${params.toString()}`);
+      if (res.ok) {
+        const result = await res.json();
+        const dataList = Array.isArray(result) ? result : result.data || [];
+        const metaData = result.meta || {
+          total: dataList.length,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false,
+        };
+
+        setEntries(dataList);
+        setMeta(metaData);
+        setIsLive(true);
+      } else {
         setEntries([]);
         setIsLive(false);
-      } finally {
-        setIsLoading(false);
       }
+    } catch (err) {
+      console.warn("Failed to fetch knowledge base from NestJS backend:", err);
+      setEntries([]);
+      setIsLive(false);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchKbEntries();
   }, [page, debouncedSearch]);
 
@@ -159,6 +222,39 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  const handleImportTemplate = async () => {
+    if (!selectedTemplateId) return;
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    setIsImporting(true);
+    setImportSuccessMsg(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/knowledge-base/import-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: selectedTemplateId,
+          tenantName: importingTenantName || "Default Tenant",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setImportSuccessMsg(`Successfully imported ${data.importedCount} entries from template "${data.templateName}"!`);
+        await fetchKbEntries();
+        setTimeout(() => {
+          setIsTemplateModalOpen(false);
+          setImportSuccessMsg(null);
+        }, 1500);
+      }
+    } catch (err) {
+      console.error("Failed to import template pack:", err);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -176,13 +272,16 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  const activeTemplate = templates.find((t) => t.id === selectedTemplateId);
+
   return (
     <div className="space-y-6">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Tenant Knowledge Base</h1>
           <p className="text-xs text-slate-400">
-            Custom Q&A domain knowledge injected into LLM context when answering caller queries.
+            Domain-specific Q&A knowledge injected into LLM context during live phone calls.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -196,12 +295,23 @@ export default function KnowledgeBasePage() {
             <Activity className="h-3 w-3 animate-pulse" />
             <span>{isLive ? `${meta.total} Knowledge Entries` : "API Offline (0 Entries)"}</span>
           </span>
+
+          {/* Template Import Button */}
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-sm font-medium rounded-xl transition-all shadow-md inline-flex items-center space-x-2"
+          >
+            <Sparkles className="h-4 w-4 text-indigo-400" />
+            <span>Import Template Pack</span>
+          </button>
+
+          {/* Add Single Entry Button */}
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-all shadow-md inline-flex items-center space-x-2"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Knowledge Entry</span>
+            <span>Add Entry</span>
           </button>
         </div>
       </div>
@@ -231,8 +341,21 @@ export default function KnowledgeBasePage() {
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-500 text-xs">
-            No knowledge base entries found in database. Click "Add Knowledge Entry" above to create one.
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center space-y-4">
+            <BookOpen className="h-10 w-10 text-slate-600 mx-auto" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-300">No Knowledge Base Entries Found</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Choose an Industry Template Pack above to pre-populate Q&A domain knowledge in 1 click!
+              </p>
+            </div>
+            <button
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl inline-flex items-center space-x-2 shadow-lg"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Browse 6 Industry Templates</span>
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -285,7 +408,139 @@ export default function KnowledgeBasePage() {
         </div>
       </div>
 
-      {/* Creation Modal */}
+      {/* ───────────────────────────────────────────────────────────────────────────── */}
+      {/* INDUSTRY TEMPLATE PACK MODAL */}
+      {/* ───────────────────────────────────────────────────────────────────────────── */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-6 w-6 text-indigo-400" />
+                <div>
+                  <h2 className="text-lg font-bold text-white">Industry Knowledge Base Templates</h2>
+                  <p className="text-xs text-slate-400">Select an industry model to pre-populate 5 production-ready Q&A domain entries into your tenant.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Success Feedback Banner */}
+            {importSuccessMsg && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold p-4 rounded-2xl flex items-center space-x-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <span>{importSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Target Tenant Selector */}
+            <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Apply Template Pack To Tenant Business
+              </label>
+              <select
+                value={importingTenantName}
+                onChange={(e) => setImportingTenantName(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                {tenants.length === 0 ? (
+                  <option value="Default Business">Default Business</option>
+                ) : (
+                  tenants.map((t) => (
+                    <option key={t.id} value={t.name}>
+                      🏢 {t.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* 6 Industry Template Selector Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {templates.map((tpl) => {
+                const isSelected = tpl.id === selectedTemplateId;
+                const icon = ICON_MAP[tpl.iconName] || <Layers className="h-5 w-5 text-indigo-400" />;
+
+                return (
+                  <div
+                    key={tpl.id}
+                    onClick={() => setSelectedTemplateId(tpl.id)}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? "bg-indigo-600/15 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+                        : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">{icon}</div>
+                        {isSelected && <CheckCircle2 className="h-5 w-5 text-indigo-400" />}
+                      </div>
+                      <h3 className="font-bold text-white text-sm">{tpl.name}</h3>
+                      <p className="text-[11px] text-slate-400 leading-tight line-clamp-2">{tpl.description}</p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
+                      <span>{tpl.category}</span>
+                      <span className="font-mono text-indigo-400 font-bold">{tpl.entries.length} Q&As</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Template Entry Preview Box */}
+            {activeTemplate && (
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                  <span className="flex items-center space-x-1.5">
+                    <Layers className="h-4 w-4 text-indigo-400" />
+                    <span>Included Q&A Entry Preview ({activeTemplate.entries.length} Items)</span>
+                  </span>
+                  <span className="text-slate-500 font-normal">Auto-injected into LLM context</span>
+                </div>
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {activeTemplate.entries.map((entry, idx) => (
+                    <div key={idx} className="bg-slate-900/80 border border-slate-800/80 p-2.5 rounded-xl text-xs space-y-1">
+                      <div className="font-semibold text-white">Q: {entry.question}</div>
+                      <div className="text-slate-400 text-[11px] leading-relaxed">A: {entry.answer}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportTemplate}
+                disabled={isImporting || !selectedTemplateId}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg inline-flex items-center space-x-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>{isImporting ? "Injecting Template..." : `Apply ${activeTemplate?.name || "Template"} Pack`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────────────────────── */}
+      {/* SINGLE ENTRY CREATION MODAL */}
+      {/* ───────────────────────────────────────────────────────────────────────────── */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
