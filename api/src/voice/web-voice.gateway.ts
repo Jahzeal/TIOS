@@ -65,6 +65,19 @@ export class WebVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect
     let deepgramLive: any = null;
     const startTime = Date.now();
 
+    // Register message handler IMMEDIATELY to buffer events during async setup
+    const messageBuffer: any[] = [];
+    let isSetupComplete = false;
+    let onMessageReady: ((msg: any) => void) | null = null;
+
+    ws.on('message', (rawMsg: any) => {
+      if (!isSetupComplete) {
+        messageBuffer.push(rawMsg);
+      } else if (onMessageReady) {
+        onMessageReady(rawMsg);
+      }
+    });
+
     const chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
     let activeAgent: any = null;
     let targetAgentId = agentId;
@@ -238,7 +251,7 @@ export class WebVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect
       });
     }
 
-    ws.on('message', async (message: any) => {
+    const processMessage = async (message: any) => {
       try {
         const data = JSON.parse(message.toString());
 
@@ -263,7 +276,6 @@ export class WebVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect
 
             if (isCallActive && deepgramLive) {
               try {
-                // Browser sends base64 WebM audio
                 const rawAudio = Buffer.from(data.media.payload, 'base64');
                 if (typeof deepgramLive.send === 'function') deepgramLive.send(rawAudio);
               } catch (err) {
@@ -279,7 +291,15 @@ export class WebVoiceGateway implements OnGatewayConnection, OnGatewayDisconnect
       } catch (err) {
         console.error('[WebVoiceGateway Message Error]:', err);
       }
-    });
+    };
+
+    // Setup complete — flush buffered messages then wire live handler
+    isSetupComplete = true;
+    onMessageReady = processMessage;
+    for (const buffered of messageBuffer) {
+      await processMessage(buffered);
+    }
+    messageBuffer.length = 0;
 
     ws.on('close', async () => {
       console.log('[WebVoiceGateway] Browser call disconnected.');
