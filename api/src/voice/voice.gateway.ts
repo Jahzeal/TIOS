@@ -70,6 +70,23 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     let deepgramLive: any = null;
     const startTime = Date.now();
 
+    // ===== CRITICAL: Register message handler IMMEDIATELY to buffer Twilio events =====
+    // Twilio sends 'start' within milliseconds of WebSocket connection.
+    // All async setup (DB lookups, prompt building) runs AFTER this registration.
+    // Buffered messages are replayed once setup is complete.
+    const messageBuffer: any[] = [];
+    let isSetupComplete = false;
+    let onMessageReady: ((msg: any) => void) | null = null;
+
+    ws.on('message', (rawMsg: any) => {
+      if (!isSetupComplete) {
+        messageBuffer.push(rawMsg);
+      } else if (onMessageReady) {
+        onMessageReady(rawMsg);
+      }
+    });
+    // =================================================================================
+
     const chatHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
 
     let activeAgent: any = null;
@@ -278,7 +295,8 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     let mediaChunkCount = 0;
 
-    ws.on('message', async (message: any) => {
+    // Process a single WebSocket message
+    const processMessage = async (message: any) => {
       try {
         const data = JSON.parse(message.toString());
 
@@ -302,9 +320,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 if (existingCall) {
                   dbCallRecord = existingCall;
                   callRecordId = existingCall.id;
-                  if (existingCall.callerPhone) {
-                    callerPhone = existingCall.callerPhone;
-                  }
+                  if (existingCall.callerPhone) callerPhone = existingCall.callerPhone;
                   if (paramPhone && paramPhone.startsWith('+')) {
                     callerPhone = paramPhone;
                     await this.prisma.call.update({
@@ -332,23 +348,29 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }
 
-            // Create speechSession here so it always has a valid MZ... streamSid from the start
             if (!speechSession && streamSid) {
               speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
             } else if (speechSession && streamSid) {
               speechSession.setStreamSid(streamSid);
             }
 
-            // Trigger greeting now that we have a valid streamSid
             triggerGreeting();
-
             console.log(`[Twilio Start] Media stream bound. CallSid: ${trueSid}, StreamSid: ${streamSid}, Phone: ${callerPhone}`);
             break;
+
           case 'media':
-            // Update streamSid if we somehow missed 'start' (safety net)
-            if (!streamSid && data.streamSid) {
+            // Safety net: if start was somehow missed, extract streamSid from media event
+            if (data.streamSid && !streamSid) {
               streamSid = data.streamSid;
-              if (speechSession) speechSession.setStreamSid(streamSid);
+              console.warn(`[VoiceGateway] Recovered streamSid from media: ${streamSid}`);
+            }
+            // Safety net: create session and trigger greeting if start was missed
+            if (!speechSession && streamSid) {
+              speechSession = this.elevenLabsService.createSpeechSession(ws, streamSid, voiceId);
+              speechSession.setStreamSid(streamSid);
+              triggerGreeting();
+            } else if (speechSession && streamSid) {
+              speechSession.setStreamSid(streamSid);
             }
             mediaChunkCount++;
             if (mediaChunkCount === 1 || mediaChunkCount % 10 === 0) {
@@ -374,7 +396,15 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } catch (err) {
         console.error('[WebSocket Message Error] Parsing failed:', err);
       }
-    });
+    };
+
+    // Mark setup complete, flush buffered messages, then wire live handler
+    isSetupComplete = true;
+    onMessageReady = processMessage;
+    for (const buffered of messageBuffer) {
+      await processMessage(buffered);
+    }
+    messageBuffer.length = 0;
 
     ws.on('close', async () => {
       console.log('[WebSocket Close] Connection terminated.');
