@@ -25,7 +25,7 @@ const prisma = createPrismaClient();
 
 async function runPaymentCollectionTest() {
   console.log('\n=================================================');
-  console.log('🧪 TEST: Payment Collection Agent & SMS Link Dispatcher');
+  console.log('TEST: Payment Collection Agent & SMS Link Dispatcher');
   console.log('=================================================\n');
 
   try {
@@ -38,9 +38,9 @@ async function runPaymentCollectionTest() {
           twilioPhone: '+15876028009',
         },
       });
-      console.log(`  ✅ Created test tenant: ${tenant.name} (${tenant.id})`);
+      console.log(`  [PASS] Created test tenant: ${tenant.name} (${tenant.id})`);
     } else {
-      console.log(`  ✅ Found existing tenant: ${tenant.name} (${tenant.id})`);
+      console.log(`  [PASS] Found existing tenant: ${tenant.name} (${tenant.id})`);
     }
 
     const testPhone = process.env.TEST_PHONE_NUMBER || '+17808025420';
@@ -63,10 +63,10 @@ async function runPaymentCollectionTest() {
       },
     });
 
-    console.log(`  ✅ Payment Record created in database! ID: ${paymentRecord.id}`);
-    console.log(`  💳 Checkout Link: ${paymentRecord.link}`);
-    console.log(`  💰 Amount: $${paymentRecord.amount}`);
-    console.log(`  📱 Target Phone: ${paymentRecord.phone}`);
+    console.log(`  [PASS] Payment Record created in database! ID: ${paymentRecord.id}`);
+    console.log(`  Checkout Link: ${paymentRecord.link}`);
+    console.log(`  Amount: $${paymentRecord.amount}`);
+    console.log(`  Target Phone: ${paymentRecord.phone}`);
 
     // 3. Test Twilio SMS dispatch
     console.log('\n2. Testing Twilio SMS Dispatch for Payment Link...');
@@ -75,7 +75,7 @@ async function runPaymentCollectionTest() {
     const fromPhone = process.env.TWILIO_PHONE_NUMBER || '+15876028009';
 
     if (!accountSid || !authToken) {
-      console.warn('  ⚠️ TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing in environment. Skipping live SMS sending.');
+      console.warn('  [WARN] TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing in environment. Skipping live SMS sending.');
     } else {
       const smsMessage = `Hi! Here is your payment link for ${testService} ($${testAmount.toFixed(2)}): ${checkoutLink}`;
       const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
@@ -95,19 +95,19 @@ async function runPaymentCollectionTest() {
 
       if (twilioRes.ok) {
         const smsData: any = await twilioRes.json();
-        console.log(`  ✅ SMS successfully dispatched via Twilio! SID: ${smsData.sid}`);
+        console.log(`  [PASS] SMS successfully dispatched via Twilio! SID: ${smsData.sid}`);
       } else {
         const errText = await twilioRes.text();
-        console.error(`  ❌ Twilio SMS HTTP ${twilioRes.status}:`, errText);
+        console.error(`  [FAIL] Twilio SMS HTTP ${twilioRes.status}:`, errText);
       }
     }
 
     console.log('\n=================================================');
-    console.log('🎉 PAYMENT COLLECTION TEST COMPLETE — ALL STEPS PASSED');
+    console.log('PAYMENT COLLECTION TEST COMPLETE — ALL STEPS PASSED');
     console.log('=================================================\n');
 
   } catch (err: any) {
-    console.error('❌ Test failed with error:', err);
+    console.error('[FAIL] Test failed with error:', err);
   } finally {
     await prisma.$disconnect();
   }

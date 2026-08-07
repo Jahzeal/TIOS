@@ -25,7 +25,7 @@ const prisma = createPrismaClient();
 
 async function runCallbackAgentTest() {
   console.log('\n=================================================');
-  console.log('🧪 TEST: Outbound Callback Agent & Job Queue Worker');
+  console.log('TEST: Outbound Callback Agent & Job Queue Worker');
   console.log('=================================================\n');
 
   try {
@@ -38,9 +38,9 @@ async function runCallbackAgentTest() {
           twilioPhone: '+15876028009',
         },
       });
-      console.log(`  ✅ Created test tenant: ${tenant.name} (${tenant.id})`);
+      console.log(`  [PASS] Created test tenant: ${tenant.name} (${tenant.id})`);
     } else {
-      console.log(`  ✅ Found existing tenant: ${tenant.name} (${tenant.id})`);
+      console.log(`  [PASS] Found existing tenant: ${tenant.name} (${tenant.id})`);
     }
 
     const testPhone = process.env.TEST_PHONE_NUMBER || '+17808025420';
@@ -68,10 +68,10 @@ async function runCallbackAgentTest() {
       },
     });
 
-    console.log(`  ✅ Job created in database! ID: ${job.id}`);
-    console.log(`  📋 Queue: ${job.queueName}`);
-    console.log(`  📱 Target Phone: ${testPhone}`);
-    console.log(`  ⏱️ Available At: ${job.availableAt.toISOString()}`);
+    console.log(`  [PASS] Job created in database! ID: ${job.id}`);
+    console.log(`  Queue: ${job.queueName}`);
+    console.log(`  Target Phone: ${testPhone}`);
+    console.log(`  Available At: ${job.availableAt.toISOString()}`);
 
     // 2. Query due jobs from queue (simulates QueueWorkerService)
     console.log('\n2. Simulating QueueWorkerService: Fetching Due Jobs...');
@@ -85,11 +85,11 @@ async function runCallbackAgentTest() {
       include: { tenant: true },
     });
 
-    console.log(`  ✅ Queue Worker found ${dueJobs.length} pending callback jobs ready for execution.`);
+    console.log(`  [PASS] Queue Worker found ${dueJobs.length} pending callback jobs ready for execution.`);
 
     const foundJob = dueJobs.find((j) => j.id === job.id);
     if (foundJob) {
-      console.log(`  🎯 Target test job ${job.id} confirmed present in due queue!`);
+      console.log(`  [TARGET] Target test job ${job.id} confirmed present in due queue!`);
     }
 
     // 3. Test Twilio Outbound Call Trigger
@@ -99,13 +99,13 @@ async function runCallbackAgentTest() {
     const fromPhone = tenant.twilioPhone || process.env.TWILIO_PHONE_NUMBER || '+15876028009';
 
     if (!accountSid || !authToken) {
-      console.warn('  ⚠️ TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing in environment. Skipping live Twilio call trigger.');
+      console.warn('  [WARN] TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing in environment. Skipping live Twilio call trigger.');
     } else {
       const host = process.env.RENDER_EXTERNAL_URL || 'https://tios.onrender.com';
       const callbackWebhookUrl = `${host}/voice?direction=OUTBOUND&tenantId=${tenant.id}`;
 
-      console.log(`  📞 Triggering Twilio Outbound Call to ${testPhone}...`);
-      console.log(`  🔗 Webhook URL: ${callbackWebhookUrl}`);
+      console.log(`  Triggering Twilio Outbound Call to ${testPhone}...`);
+      console.log(`  Webhook URL: ${callbackWebhookUrl}`);
 
       const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
       const bodyParams = new URLSearchParams();
@@ -124,26 +124,26 @@ async function runCallbackAgentTest() {
 
       if (twilioRes.ok) {
         const resData: any = await twilioRes.json();
-        console.log(`  ✅ Twilio Outbound Call triggered successfully! Call SID: ${resData.sid}`);
+        console.log(`  [PASS] Twilio Outbound Call triggered successfully! Call SID: ${resData.sid}`);
 
         // Mark job COMPLETED
         await prisma.job.update({
           where: { id: job.id },
           data: { status: 'COMPLETED' },
         });
-        console.log(`  ✅ Job ${job.id} status updated to COMPLETED in database.`);
+        console.log(`  [PASS] Job ${job.id} status updated to COMPLETED in database.`);
       } else {
         const errText = await twilioRes.text();
-        console.error(`  ❌ Twilio Call HTTP ${twilioRes.status}:`, errText);
+        console.error(`  [FAIL] Twilio Call HTTP ${twilioRes.status}:`, errText);
       }
     }
 
     console.log('\n=================================================');
-    console.log('🎉 OUTBOUND CALLBACK AGENT TEST COMPLETE — ALL STEPS PASSED');
+    console.log('OUTBOUND CALLBACK AGENT TEST COMPLETE — ALL STEPS PASSED');
     console.log('=================================================\n');
 
   } catch (err: any) {
-    console.error('❌ Test failed with error:', err);
+    console.error('[FAIL] Test failed with error:', err);
   } finally {
     await prisma.$disconnect();
   }

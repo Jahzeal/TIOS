@@ -20,10 +20,10 @@ let failed = 0;
 
 function assert(condition: boolean, label: string) {
   if (condition) {
-    console.log(`  ✅ PASS: ${label}`);
+    console.log(`  [PASS] ${label}`);
     passed++;
   } else {
-    console.error(`  ❌ FAIL: ${label}`);
+    console.error(`  [FAIL] ${label}`);
     failed++;
   }
 }
@@ -54,10 +54,6 @@ function collectMessages(ws: WebSocket, durationMs: number): Promise<any[]> {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TEST 1: VoiceGateway (/stream) — Twilio phone call simulation
-// Verifies: NO 'transcript' events sent back, only 'media'/'mark'/'clear'
-// ─────────────────────────────────────────────────────────────────────────────
 async function testTwilioGateway() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('TEST 1: VoiceGateway (/stream) — Twilio Mode');
@@ -66,7 +62,7 @@ async function testTwilioGateway() {
   let ws: WebSocket | null = null;
   try {
     ws = await connectWs('/stream', {
-      callSid: 'CAtest1234567890abcdef1234567890ab', // Real CA... format
+      callSid: 'CAtest1234567890abcdef1234567890ab',
       tenantId: 'test-tenant',
       agentId: 'test-agent',
       direction: 'INBOUND',
@@ -76,7 +72,6 @@ async function testTwilioGateway() {
 
     const collectPromise = collectMessages(ws, 4000);
 
-    // Simulate Twilio protocol: connected → start → media
     ws.send(JSON.stringify({ event: 'connected', protocol: '1.0.0' }));
 
     await new Promise(r => setTimeout(r, 100));
@@ -84,7 +79,7 @@ async function testTwilioGateway() {
     ws.send(JSON.stringify({
       event: 'start',
       start: {
-        streamSid: 'MZtest1234567890abcdef1234567890ab',  // Real MZ... format
+        streamSid: 'MZtest1234567890abcdef1234567890ab',
         callSid: 'CAtest1234567890abcdef1234567890ab',
         customParameters: {
           callerPhone: '+17808025420',
@@ -95,8 +90,7 @@ async function testTwilioGateway() {
 
     await new Promise(r => setTimeout(r, 500));
 
-    // Send a few fake mulaw audio chunks (silent frames)
-    const silentMulaw = Buffer.alloc(160, 0xFF); // 20ms of silence at 8kHz
+    const silentMulaw = Buffer.alloc(160, 0xFF);
     for (let i = 0; i < 5; i++) {
       ws.send(JSON.stringify({
         event: 'media',
@@ -108,7 +102,6 @@ async function testTwilioGateway() {
 
     const messages = await collectPromise;
 
-    // ─── Assertions ───
     const eventTypes = messages.map(m => m.event).filter(Boolean);
     console.log(`\n  Received event types from /stream: [${eventTypes.join(', ')}]`);
 
@@ -142,17 +135,13 @@ async function testTwilioGateway() {
     }
 
   } catch (err: any) {
-    console.error(`  ❌ TEST 1 ERROR: ${err.message}`);
+    console.error(`  [FAIL] TEST 1 ERROR: ${err.message}`);
     failed++;
   } finally {
     if (ws && ws.readyState === WebSocket.OPEN) ws.close();
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TEST 2: WebVoiceGateway (/stream/web) — Browser test call simulation
-// Verifies: 'transcript' events ARE sent back to browser
-// ─────────────────────────────────────────────────────────────────────────────
 async function testWebGateway() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('TEST 2: WebVoiceGateway (/stream/web) — Browser Mode');
@@ -171,7 +160,6 @@ async function testWebGateway() {
 
     const collectPromise = collectMessages(ws, 5000);
 
-    // Simulate browser: send start event
     ws.send(JSON.stringify({
       event: 'start',
       start: {
@@ -182,7 +170,6 @@ async function testWebGateway() {
 
     const messages = await collectPromise;
 
-    // ─── Assertions ───
     const eventTypes = messages.map(m => m.event).filter(Boolean);
     console.log(`\n  Received event types from /stream/web: [${eventTypes.join(', ')}]`);
 
@@ -207,16 +194,13 @@ async function testWebGateway() {
     }
 
   } catch (err: any) {
-    console.error(`  ❌ TEST 2 ERROR: ${err.message}`);
+    console.error(`  [FAIL] TEST 2 ERROR: ${err.message}`);
     failed++;
   } finally {
     if (ws && ws.readyState === WebSocket.OPEN) ws.close();
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TEST 3: Path isolation — browser connecting to /stream should NOT get transcripts
-// ─────────────────────────────────────────────────────────────────────────────
 async function testPathIsolation() {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('TEST 3: Path Isolation — Browser on /stream gets NO transcripts');
@@ -224,15 +208,13 @@ async function testPathIsolation() {
 
   let ws: WebSocket | null = null;
   try {
-    // Simulate a browser accidentally connecting to /stream (Twilio path)
     ws = await connectWs('/stream', {
-      callSid: 'CAtest9999', // Looks like a Twilio SID
+      callSid: 'CAtest9999',
       tenantId: 'test-tenant',
     });
 
     const collectPromise = collectMessages(ws, 3000);
 
-    // Even if browser sends a start event here, no transcript should come back
     ws.send(JSON.stringify({
       event: 'start',
       start: {
@@ -250,18 +232,15 @@ async function testPathIsolation() {
     );
 
   } catch (err: any) {
-    console.error(`  ❌ TEST 3 ERROR: ${err.message}`);
+    console.error(`  [FAIL] TEST 3 ERROR: ${err.message}`);
     failed++;
   } finally {
     if (ws && ws.readyState === WebSocket.OPEN) ws.close();
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Runner
-// ─────────────────────────────────────────────────────────────────────────────
 async function runAll() {
-  console.log('\n🧪 TIOS Gateway Integration Tests');
+  console.log('\nTIOS Gateway Integration Tests');
   console.log(`   Target: ${API_BASE_URL}`);
   console.log('═════════════════════════════════════════════\n');
 
@@ -272,10 +251,10 @@ async function runAll() {
   console.log('\n═════════════════════════════════════════════');
   console.log(`Results: ${passed} passed, ${failed} failed`);
   if (failed === 0) {
-    console.log('🎉 ALL TESTS PASSED!\n');
+    console.log('ALL TESTS PASSED!\n');
     process.exit(0);
   } else {
-    console.log('⚠️  SOME TESTS FAILED\n');
+    console.log('SOME TESTS FAILED\n');
     process.exit(1);
   }
 }
