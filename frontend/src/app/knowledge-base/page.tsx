@@ -439,58 +439,68 @@ export default function KnowledgeBasePage() {
               </div>
             )}
 
-            {/* Target Tenant Selector */}
-            <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Apply Template Pack To Tenant Business
-              </label>
-              <select
-                value={importingTenantName}
-                onChange={(e) => setImportingTenantName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              >
-                {tenants.length === 0 ? (
-                  <option value="Default Business">Default Business</option>
-                ) : (
-                  tenants.map((t) => (
-                    <option key={t.id} value={t.name}>
-                      🏢 {t.name}
+            {/* Select Industry Template Dropdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                  1. Select Industry Model Template
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full bg-slate-900 border border-indigo-500/40 rounded-xl p-3 text-xs text-white font-semibold focus:outline-none focus:border-indigo-500"
+                >
+                  {templates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.name} ({tpl.category} — {tpl.entries.length} Q&As)
                     </option>
-                  ))
-                )}
-              </select>
+                  ))}
+                </select>
+              </div>
+
+              {/* Target Tenant Selector */}
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  2. Apply Template Pack To Tenant
+                </label>
+                <select
+                  value={importingTenantName}
+                  onChange={(e) => setImportingTenantName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  {tenants.length === 0 ? (
+                    <option value="Default Business">Default Business</option>
+                  ) : (
+                    tenants.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        🏢 {t.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             </div>
 
-            {/* 6 Industry Template Selector Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {/* 6 Industry Template Quick Cards Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               {templates.map((tpl) => {
                 const isSelected = tpl.id === selectedTemplateId;
-                const icon = ICON_MAP[tpl.iconName] || <Layers className="h-5 w-5 text-indigo-400" />;
+                const icon = ICON_MAP[tpl.iconName] || <Layers className="h-4 w-4 text-indigo-400" />;
 
                 return (
-                  <div
+                  <button
                     key={tpl.id}
+                    type="button"
                     onClick={() => setSelectedTemplateId(tpl.id)}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col items-center text-center space-y-1.5 ${
                       isSelected
-                        ? "bg-indigo-600/15 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]"
-                        : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                        ? "bg-indigo-600/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.25)]"
+                        : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
                     }`}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="p-2 rounded-xl bg-slate-900 border border-slate-800">{icon}</div>
-                        {isSelected && <CheckCircle2 className="h-5 w-5 text-indigo-400" />}
-                      </div>
-                      <h3 className="font-bold text-white text-sm">{tpl.name}</h3>
-                      <p className="text-[11px] text-slate-400 leading-tight line-clamp-2">{tpl.description}</p>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
-                      <span>{tpl.category}</span>
-                      <span className="font-mono text-indigo-400 font-bold">{tpl.entries.length} Q&As</span>
-                    </div>
-                  </div>
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">{icon}</div>
+                    <span className="font-bold text-white text-[11px] leading-tight">{tpl.name}</span>
+                  </button>
                 );
               })}
             </div>
