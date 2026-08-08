@@ -139,7 +139,9 @@ export default function SettingsPage() {
   const handleAddCadenceStep = () => {
     setCadenceSteps((prev) => {
       const nextStepNum = prev.length + 1;
-      return [...prev, { step: nextStepNum, value: 24 * (nextStepNum - 1), unit: "HOURS" }];
+      const defaultUnit: "MINUTES" | "HOURS" | "DAYS" = nextStepNum > 2 ? "DAYS" : "HOURS";
+      const defaultValue = nextStepNum > 2 ? Math.min(31, nextStepNum - 1) : 24;
+      return [...prev, { step: nextStepNum, value: defaultValue, unit: defaultUnit }];
     });
   };
 
@@ -160,15 +162,7 @@ export default function SettingsPage() {
     setCadenceSteps((prev) => {
       const copy = [...prev];
       if (field === "value") {
-        if (val === "" || val === null || val === undefined) {
-          copy[index].value = "";
-        } else {
-          const limits = getUnitLimits(copy[index].unit);
-          const numVal = parseInt(String(val), 10);
-          if (!isNaN(numVal)) {
-            copy[index].value = Math.min(limits.max, Math.max(0, numVal));
-          }
-        }
+        copy[index].value = val;
       } else {
         const newUnit = val as "MINUTES" | "HOURS" | "DAYS";
         copy[index].unit = newUnit;
