@@ -26,7 +26,7 @@ interface ChatTurn {
 
 interface CadenceStepItem {
   step: number;
-  value: number;
+  value: number | string;
   unit: "MINUTES" | "HOURS" | "DAYS";
 }
 
