@@ -22,7 +22,11 @@ export class DashboardService {
         this.prisma.lead.count().catch(() => 0),
         this.prisma.call.count({ where: { status: 'COMPLETED' } }).catch(() => 0),
         this.prisma.call.aggregate({ _avg: { duration: true } }).catch(() => ({ _avg: { duration: 0 } })),
-        this.prisma.payment.aggregate({ _sum: { amount: true }, _count: true }).catch(() => ({ _sum: { amount: 0 }, _count: 0 })),
+        this.prisma.payment.aggregate({
+          where: { status: 'PAID' },
+          _sum: { amount: true },
+          _count: true,
+        }).catch(() => ({ _sum: { amount: 0 }, _count: 0 })),
       ]);
 
       const totalDepositsAmount = deposits._sum?.amount || 0;
