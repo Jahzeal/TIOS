@@ -112,8 +112,21 @@ function CallsPageContent() {
           params.append("search", debouncedSearch.trim());
         }
 
-        const res = await fetch(`${API_BASE_URL}/calls?${params.toString()}`);
-        if (res.ok) {
+        let res: Response | null = null;
+        try {
+          res = await fetch(`${API_BASE_URL}/calls?${params.toString()}`);
+        } catch (fetchErr) {
+          // Fallback to localhost if remote endpoint fails
+          if (API_BASE_URL !== "http://localhost:5000") {
+            try {
+              res = await fetch(`http://localhost:5000/calls?${params.toString()}`);
+            } catch (localErr) {
+              res = null;
+            }
+          }
+        }
+
+        if (res && res.ok) {
           const result = await res.json();
           const callData = Array.isArray(result) ? result : result.data || [];
           const metaData = result.meta || {

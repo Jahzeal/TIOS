@@ -57,14 +57,14 @@ export class CallsService {
       const where: any = andConditions.length > 0 ? { AND: andConditions } : {};
 
       const [total, data] = await Promise.all([
-        this.prisma.call.count({ where }).catch(() => 0),
+        this.prisma.call.count({ where }),
         this.prisma.call.findMany({
           where,
           orderBy: { createdAt: 'desc' },
           skip,
           take: limit,
           include: { tenant: true, agent: true },
-        }).catch(() => []),
+        }),
       ]);
 
       const callIds = data.map((c) => c.id).filter(Boolean);
@@ -82,6 +82,13 @@ export class CallsService {
         }).catch(() => []);
       }
 
+      // Fetch default tenant if any records have missing tenant relation
+      let defaultTenant: any = null;
+      const needsTenantFallback = data.some((c) => !c.tenant);
+      if (needsTenantFallback) {
+        defaultTenant = await this.prisma.tenant.findFirst().catch(() => null);
+      }
+
       const enriched = data.map((call) => {
         const matchedPayment = payments.find(
           (p) => p.callId === call.id || (p.phone && p.phone === call.callerPhone),
@@ -89,6 +96,8 @@ export class CallsService {
 
         return {
           ...call,
+          tenant: call.tenant || defaultTenant || { name: 'Main Business Store' },
+          agent: call.agent || { name: 'AI Receptionist' },
           paymentStatus: matchedPayment ? matchedPayment.status : 'NO_QUOTE',
           paymentAmount: matchedPayment ? matchedPayment.amount : null,
           paymentService: matchedPayment ? matchedPayment.inquiredService : null,
@@ -143,8 +152,15 @@ export class CallsService {
         orderBy: { createdAt: 'desc' },
       }).catch(() => null);
 
+      let defaultTenant: any = null;
+      if (!call.tenant) {
+        defaultTenant = await this.prisma.tenant.findFirst().catch(() => null);
+      }
+
       return {
         ...call,
+        tenant: call.tenant || defaultTenant || { name: 'Main Business Store' },
+        agent: call.agent || { name: 'AI Receptionist' },
         paymentStatus: payment ? payment.status : 'NO_QUOTE',
         paymentAmount: payment ? payment.amount : null,
         paymentService: payment ? payment.inquiredService : null,
