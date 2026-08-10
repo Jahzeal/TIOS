@@ -90,7 +90,9 @@ export class VoicePromptBuilderService {
       }
     }
 
-    systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\nIf the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back (regardless of how they phrase it), you MUST start your response with the exact tag: [ACTION:REQUEST_CALLBACK]. Followed by your polite closing response: "I have logged your request! A representative will give you a call back shortly. Thank you, and have a wonderful day!"`;
+    systemPrompt += `\n\nAUTOMATED ACTIONS RULE:\n` +
+      `1. REPRESENTATIVE CALLBACK: If the caller expresses ANY intention to speak with a human agent, representative, live person, or requests a phone call back, start your response with [ACTION:REQUEST_CALLBACK] and append [ACTION:HANGUP] at the end: "[ACTION:REQUEST_CALLBACK] I have logged your request! A representative will give you a call back shortly. Thank you, and have a wonderful day! [ACTION:HANGUP]"\n` +
+      `2. CONVERSATION COMPLETION & DISCONNECT: Whenever the caller indicates they are done with the conversation (e.g. says "Bye", "Goodbye", "That's all", "No more questions", "All good", "Thanks, bye"), respond warmly and append the exact tag [ACTION:HANGUP] at the end of your response (e.g. "Thank you for calling ${businessName}! Have a wonderful day! [ACTION:HANGUP]").`;
 
     if (isOutbound) {
       // Fetch latest interaction history from database if context not passed explicitly
@@ -120,7 +122,7 @@ export class VoicePromptBuilderService {
         `2. CONTEXT-AWARE ASSISTANCE: If they have an active quote or payment link for ${serviceName}${amountText}, check if they have questions or need assistance completing it.\n` +
         `3. SMS PAYMENT DISPATCH: If the customer asks to pay or requests the checkout link again, output [ACTION:SEND_PAYMENT_LINK] at the start of your response, specifying "${serviceName}" and $${amountVal}.\n` +
         `4. TOPIC PIVOT SAFETY: If the customer declines or asks about a totally new product/topic, pivot immediately to their new topic and do NOT push the old quote.\n` +
-        `5. CLEAN CLOSING & NO REPETITION: Once the caller indicates they are done ("Thanks", "Bye", "All good", "Okay"), respond warmly: "Thank you for choosing ${businessName}! Have a wonderful day!" and stop asking further questions.`;
+        `5. CLEAN CLOSING & NO REPETITION: Once the caller indicates they are done ("Thanks", "Bye", "All good", "Okay"), respond warmly and append [ACTION:HANGUP]: "Thank you for choosing ${businessName}! Have a wonderful day! [ACTION:HANGUP]" and stop asking further questions.`;
     } else {
       systemPrompt += `\n\nINBOUND SALES RECEPTIONIST RULE:\n` +
         `1. CLEAN INQUIRY ANSWERING (100% FOCUS): Answer all caller questions about products, services, features, and pricing directly and cleanly. NEVER append unsolicited payment link offers or past debt reminders to simple price or information inquiries.\n` +

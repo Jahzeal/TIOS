@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OpenAiService } from '../services/ai/openai.service';
 import { PaymentsService } from '../payments/payments.service';
 import { QueueWorkerService } from '../queue/queue-worker.service';
+import { VoiceService } from './voice.service';
 
 @Injectable()
 export class VoiceActionHandlerService {
@@ -11,7 +12,16 @@ export class VoiceActionHandlerService {
     @Inject(OpenAiService) private readonly openAiService: OpenAiService,
     @Inject(PaymentsService) private readonly paymentsService: PaymentsService,
     @Inject(QueueWorkerService) private readonly queueWorkerService: QueueWorkerService,
+    @Inject(VoiceService) private readonly voiceService: VoiceService,
   ) {}
+
+  public async handleHangupAction(callSid: string) {
+    if (!callSid) return;
+    setTimeout(async () => {
+      console.log(`[VoiceActionHandler] [ACTION:HANGUP] Triggered. Executing clean Twilio call hangup for ${callSid}`);
+      await this.voiceService.hangupCall(callSid);
+    }, 4500);
+  }
 
   public async handlePaymentAction(params: {
     responseText: string;

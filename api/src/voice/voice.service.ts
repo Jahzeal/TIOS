@@ -141,6 +141,30 @@ export class VoiceService {
     return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for calling. Goodbye.</Say><Hangup/></Response>`.trim();
   }
 
+  public async hangupCall(callSid: string) {
+    if (!callSid || callSid.startsWith('CAtest')) return;
+    const accountSid = config.twilioAccountSid || process.env.TWILIO_ACCOUNT_SID;
+    const authToken = config.twilioAuthToken || process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) return;
+
+    try {
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+      const bodyParams = new URLSearchParams({ Status: 'completed' });
+
+      await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls/${callSid}.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: bodyParams.toString(),
+      });
+      console.log(`[VoiceService] Issued clean hangup command to Twilio for CallSid ${callSid}`);
+    } catch (err) {
+      console.error(`[VoiceService] Failed to issue hangup to Twilio for CallSid ${callSid}:`, err);
+    }
+  }
+
   public async createInitialCallRecord(data: { sid: string; callerPhone: string; tenantId: string; agentId: string; direction?: string }) {
     if (!data.sid) return null;
     const callDirection = (data.direction || 'INBOUND').toUpperCase();

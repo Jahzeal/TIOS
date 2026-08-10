@@ -459,25 +459,28 @@ function CallsPageContent() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[280px] overflow-y-auto pr-2">
-                    {turns.map((turn, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex ${turn.role === "agent" ? "justify-start" : "justify-end"}`}
-                      >
+                    {turns.map((turn, idx) => {
+                      const isAgent = turn.role === "agent" || turn.role === "assistant";
+                      return (
                         <div
-                          className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
-                            turn.role === "agent"
-                              ? "bg-slate-800 text-slate-100 rounded-tl-none border border-slate-700/60"
-                              : "bg-indigo-600 text-white rounded-tr-none shadow-md"
-                          }`}
+                          key={idx}
+                          className={`flex ${isAgent ? "justify-end" : "justify-start"}`}
                         >
-                          <div className="font-semibold text-[10px] text-slate-400 mb-1">
-                            {turn.role === "agent" ? "AI Receptionist" : (selectedCall.callerName || "Caller")} {turn.timestamp ? `• ${turn.timestamp}` : ""}
+                          <div
+                            className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
+                              isAgent
+                                ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
+                                : "bg-slate-800 text-slate-100 rounded-tl-none border border-slate-700/60"
+                            }`}
+                          >
+                            <div className="font-semibold text-[10px] opacity-80 mb-1">
+                              {isAgent ? (selectedCall.agent?.name || "AI Receptionist") : (selectedCall.callerName || "Customer / Caller")} {turn.timestamp ? `• ${turn.timestamp}` : ""}
+                            </div>
+                            {turn.text || (turn as any).content || ""}
                           </div>
-                          {turn.text}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

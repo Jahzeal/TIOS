@@ -223,6 +223,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if (fullResponseText.includes('[ACTION:REQUEST_CALLBACK]')) {
             await this.actionHandlerService.handleCallbackAction(callRecordId);
           }
+
+          if (fullResponseText.includes('[ACTION:HANGUP]')) {
+            await this.actionHandlerService.handleHangupAction(callSid);
+          }
         }
 
         if (sentenceBuffer.trim() && isCallActive && speechSession) {
