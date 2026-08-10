@@ -6,6 +6,21 @@ import { config } from '../config';
 export class VoiceService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
+  public async getTenantAndAgentById(tenantId?: string) {
+    if (!tenantId) return { tenant: null, agent: null };
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { agents: true },
+      });
+      if (!tenant) return { tenant: null, agent: null };
+      const agent = tenant.agents[0] || null;
+      return { tenant, agent };
+    } catch (e) {
+      return { tenant: null, agent: null };
+    }
+  }
+
   public async getTenantAndAgent(rawTwilioPhone: string) {
     const twilioPhone = (rawTwilioPhone || '').trim();
     const cleanDigits = twilioPhone.replace(/\D/g, '');

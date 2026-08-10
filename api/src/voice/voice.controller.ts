@@ -27,28 +27,49 @@ export class VoiceController {
     const fromPhone = (body.From || '').toString();
     const callSid = (body.CallSid || '').toString();
     const direction = (directionParam || body.direction || 'INBOUND').toString().toUpperCase();
+    const isOutboundCall = direction === 'OUTBOUND';
 
-    console.log(`[Twilio Inbound] Incoming call. CallSid: ${callSid}, Direction: ${direction}, From: ${fromPhone}, To: ${toPhone}`);
+    // On OUTBOUND calls:
+    // - Customer Phone is body.To (or query.phone)
+    // - Tenant Twilio Phone is body.From (or resolved via query.tenantId)
+    const customerPhone = isOutboundCall ? (toPhone || query?.phone || '').toString() : fromPhone;
+    const twilioNumber = isOutboundCall ? fromPhone : toPhone;
+    const tenantIdQuery = (query?.tenantId || '').toString();
 
-    const { tenant, agent } = await this.voiceService.getTenantAndAgent(toPhone);
+    console.log(`[Twilio Voice] Incoming call webhook. CallSid: ${callSid}, Direction: ${direction}, From: ${fromPhone}, To: ${toPhone}, Customer: ${customerPhone}`);
+
+    let tenant: any = null;
+    let agent: any = null;
+
+    if (tenantIdQuery) {
+      const resolved = await this.voiceService.getTenantAndAgentById(tenantIdQuery);
+      tenant = resolved.tenant;
+      agent = resolved.agent;
+    }
+
+    if (!tenant || !agent) {
+      const resolved = await this.voiceService.getTenantAndAgent(twilioNumber);
+      tenant = resolved.tenant;
+      agent = resolved.agent;
+    }
 
     if (!tenant || !agent) {
       res.setHeader('Content-Type', 'text/xml');
       return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>System error. Unable to locate receptionist.</Say><Hangup/></Response>`.trim());
     }
 
-    if (callSid && fromPhone) {
+    if (callSid && customerPhone) {
       await this.voiceService.createInitialCallRecord({
         sid: callSid,
-        callerPhone: fromPhone,
+        callerPhone: customerPhone,
         tenantId: tenant.id,
         agentId: agent.id,
         direction: direction,
       } as any);
     }
 
-    if (await this.voiceService.isRateLimited(fromPhone, tenant.id)) {
-      console.log(`[Rate Limiting] Caller ${fromPhone} is rate limited.`);
+    if (await this.voiceService.isRateLimited(customerPhone, tenant.id)) {
+      console.log(`[Rate Limiting] Caller ${customerPhone} is rate limited.`);
       res.setHeader('Content-Type', 'text/xml');
       return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Say>You have exceeded the maximum allowed calls per hour. Please try again later.</Say><Hangup/></Response>`.trim());
     }
@@ -59,7 +80,7 @@ export class VoiceController {
 
     const host = (forwardedHost || hostHeader || `localhost:${config.port}`).split(',')[0].trim();
     const scheme = forwardedProto === 'http' && host.includes('localhost') ? 'ws' : 'wss';
-    const rawWsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(fromPhone)}&direction=${direction}&service=${encodeURIComponent(serviceQuery)}&amount=${encodeURIComponent(amountQuery)}&intent=${encodeURIComponent(intentQuery)}`;
+    const rawWsUrl = `${scheme}://${host}/stream?tenantId=${tenant.id}&agentId=${agent.id}&callSid=${callSid}&callerPhone=${encodeURIComponent(customerPhone)}&direction=${direction}&service=${encodeURIComponent(serviceQuery)}&amount=${encodeURIComponent(amountQuery)}&intent=${encodeURIComponent(intentQuery)}`;
     const xmlWsUrl = rawWsUrl.replace(/&/g, '&amp;');
     const xmlRedirect = `/voice/post-stream?callSid=${callSid}`.replace(/&/g, '&amp;');
 

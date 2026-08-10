@@ -200,6 +200,23 @@ export class PaymentsService {
       if (firstTenant) tenantId = firstTenant.id;
     }
 
+    // Idempotency Deduplication Guard: Check if a payment for the same phone + service + amount was created within the last 60 seconds
+    const sixtySecsAgo = new Date(Date.now() - 60 * 1000);
+    const existingRecentPayment = await this.prisma.payment.findFirst({
+      where: {
+        phone: data.phone,
+        inquiredService: data.inquiredService || 'Utility Service Setup',
+        amount: data.amount,
+        createdAt: { gte: sixtySecsAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingRecentPayment) {
+      console.log(`[Payments Idempotency] Reusing existing recent payment record ${existingRecentPayment.id} for phone ${data.phone}`);
+      return existingRecentPayment;
+    }
+
     let checkoutUrl = '';
     let stripeSessionId = '';
 
