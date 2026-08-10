@@ -118,15 +118,14 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const voiceId = activeAgent?.voiceId || '21m00Tcm4TlvDq8ikWAM';
-    const isOutbound = directionQuery === 'OUTBOUND';
+    // isOutbound is set tentatively from URL param; will be re-confirmed from DB below
+    let isOutbound = directionQuery === 'OUTBOUND';
 
-    const systemPrompt = await this.promptBuilderService.buildSystemPrompt({
-      activeAgent,
-      callerPhone,
-      isOutbound,
-    });
+    // System prompt is built after DB direction is confirmed in 'start' event below
+    // Initialise chatHistory with a placeholder — it will be replaced before first greeting
+    let systemPromptBuilt = false;
 
-    chatHistory.push({ role: 'system', content: systemPrompt });
+    chatHistory.push({ role: 'system', content: '' }); // placeholder
 
     let isProcessingLlm = false;
     let accumulatedUserTranscript = '';
@@ -138,11 +137,33 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (hasDispatchedGreeting || !isCallActive) return;
       hasDispatchedGreeting = true;
 
-      const dynamicIsOutbound = isOutbound || (directionQuery || '').toUpperCase() === 'OUTBOUND' || (dbCallRecord?.direction || '').toUpperCase() === 'OUTBOUND';
+      // Confirm direction from DB (most reliable source) — fallback to URL param
+      const resolvedIsOutbound = isOutbound ||
+        (directionQuery || '').toUpperCase() === 'OUTBOUND' ||
+        (dbCallRecord?.direction || '').toUpperCase() === 'OUTBOUND';
+
+      // Rebuild system prompt now that DB direction is confirmed (replace placeholder)
+      if (!systemPromptBuilt) {
+        const serviceParam = getQueryParam('inquiredService') || getQueryParam('service');
+        const amountParam = parseFloat(getQueryParam('amount') || '0');
+        const intentParam = getQueryParam('intentType') || getQueryParam('intent');
+        const builtPrompt = await this.promptBuilderService.buildSystemPrompt({
+          activeAgent,
+          callerPhone,
+          isOutbound: resolvedIsOutbound,
+          outboundContext: resolvedIsOutbound ? {
+            inquiredService: serviceParam || undefined,
+            amount: isNaN(amountParam) || amountParam === 0 ? undefined : amountParam,
+            intentType: intentParam || undefined,
+          } : undefined,
+        });
+        chatHistory[0] = { role: 'system', content: builtPrompt };
+        systemPromptBuilt = true;
+      }
 
       let initialGreeting = `Hello! Thank you for calling ${activeAgent?.tenant?.name || 'Hive'}. How can I help you today?`;
 
-      if (dynamicIsOutbound) {
+      if (resolvedIsOutbound) {
         try {
           const serviceParam = getQueryParam('inquiredService') || getQueryParam('service');
           const amountParam = parseFloat(getQueryParam('amount') || '0');
@@ -163,7 +184,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       chatHistory.push({ role: 'assistant', content: initialGreeting });
-      console.log(`[VoiceGateway Greeting Sent] (Outbound: ${dynamicIsOutbound}): "${initialGreeting}"`);
+      console.log(`[VoiceGateway Greeting Sent] (Outbound: ${resolvedIsOutbound}, DB Direction: ${dbCallRecord?.direction}): "${initialGreeting}"`);
 
       // ONLY enqueue to SpeechSession — NO custom event types sent to Twilio WebSocket
       if (speechSession) {
