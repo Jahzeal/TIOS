@@ -68,8 +68,13 @@ export class VoiceActionHandlerService {
       console.log(`[VoiceActionHandler] Created checkout link for ${callerPhone}: ${checkoutResult.link}`);
 
       if (checkoutResult && checkoutResult.id) {
-        await this.paymentsService.sendPaymentSms(checkoutResult.id);
-        console.log(`[VoiceActionHandler] Dispatched payment SMS for payment ID ${checkoutResult.id}`);
+        if ((checkoutResult as any).wasReused) {
+          // SMS was already sent for this payment record on the first dispatch — skip to avoid duplicate texts
+          console.log(`[VoiceActionHandler] Skipping duplicate SMS for reused payment record ${checkoutResult.id}`);
+        } else {
+          await this.paymentsService.sendPaymentSms(checkoutResult.id);
+          console.log(`[VoiceActionHandler] Dispatched payment SMS for payment ID ${checkoutResult.id}`);
+        }
       }
 
       // Schedule outbound callback job based on tenant settings

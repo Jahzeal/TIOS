@@ -214,7 +214,7 @@ export class PaymentsService {
 
     if (existingRecentPayment) {
       console.log(`[Payments Idempotency] Reusing existing recent payment record ${existingRecentPayment.id} for phone ${data.phone}`);
-      return existingRecentPayment;
+      return { ...existingRecentPayment, wasReused: true };
     }
 
     let checkoutUrl = '';
