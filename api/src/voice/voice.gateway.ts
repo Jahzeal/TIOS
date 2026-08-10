@@ -340,6 +340,12 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
               callerPhone = normalizedPhone;
             }
 
+            // Re-confirm direction from TwiML custom parameters — most reliable source
+            const customDirection = (customParams.direction || customParams.Direction || '').toString().toUpperCase();
+            if (customDirection === 'OUTBOUND' || customDirection === 'INBOUND') {
+              isOutbound = customDirection === 'OUTBOUND';
+            }
+
             trueSid = data.start?.callSid || customParams.callSid || callSid;
 
             if (targetAgentId) {
