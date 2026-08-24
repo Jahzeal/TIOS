@@ -85,10 +85,10 @@ export default function ReceptionistsPage() {
             <Link className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="/how-it-works">
               How It Works
             </Link>
-            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="/#solutions">
+            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="/solutions">
               Solutions
             </Link>
-            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="/#pricing">
+            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer" href="/pricing">
               Pricing
             </Link>
           </nav>

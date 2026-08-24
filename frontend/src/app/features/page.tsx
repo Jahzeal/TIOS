@@ -77,10 +77,10 @@ export default function FeaturesPage() {
             <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/how-it-works">
               How It Works
             </Link>
-            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/#solutions">
+            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/solutions">
               Solutions
             </Link>
-            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/#pricing">
+            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/pricing">
               Pricing
             </Link>
           </div>

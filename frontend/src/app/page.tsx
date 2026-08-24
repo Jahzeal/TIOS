@@ -67,12 +67,12 @@ export default function PublicLandingPage() {
               <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/how-it-works">
                 How It Works
               </Link>
-              <a className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="#solutions">
+              <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/solutions">
                 Solutions
-              </a>
-              <a className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="#pricing">
+              </Link>
+              <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/pricing">
                 Pricing
-              </a>
+              </Link>
             </nav>
           </div>
 
@@ -86,7 +86,7 @@ export default function PublicLandingPage() {
             </Link>
             <Link
               className="bg-primary text-on-primary text-label-md font-label-md px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-all active:scale-[0.98] duration-150"
-              href="/dashboard"
+              href="/signup"
             >
               Get Started
             </Link>
@@ -135,12 +135,6 @@ export default function PublicLandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Text Content */}
             <div className="flex flex-col gap-6 z-10 max-w-2xl text-center lg:text-left mx-auto lg:mx-0">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-surface-container rounded-full border border-outline-variant w-fit mx-auto lg:mx-0">
-                <span className="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
-                <span className="text-label-sm font-label-sm text-on-surface-variant font-medium tracking-wide">
-                  TIOS AI RECEPTIONIST 2.0
-                </span>
-              </div>
               <h1 className="text-headline-lg-mobile md:text-display font-display text-on-background">
                 Your business never misses a <span className="shimmer-text">conversation.</span>
               </h1>

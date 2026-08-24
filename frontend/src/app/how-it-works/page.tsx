@@ -71,10 +71,10 @@ export default function HowItWorksPage() {
             <Link className="font-label-md text-label-md text-primary font-bold border-b-2 border-primary pb-1" href="/how-it-works">
               How It Works
             </Link>
-            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" href="/#solutions">
+            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" href="/solutions">
               Solutions
             </Link>
-            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" href="/#pricing">
+            <Link className="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" href="/pricing">
               Pricing
             </Link>
           </nav>
