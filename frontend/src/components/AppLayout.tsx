@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Bypass internal dashboard layout for public marketing pages
-  if (pathname === "/" || pathname === "/features") {
+  if (pathname === "/" || pathname === "/features" || pathname === "/receptionists" || pathname === "/how-it-works") {
     return <>{children}</>;
   }
 

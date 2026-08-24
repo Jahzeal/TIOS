@@ -71,10 +71,10 @@ export default function FeaturesPage() {
             <Link className="text-primary font-bold border-b-2 border-primary pb-1 font-label-md text-label-md" href="/features">
               Features
             </Link>
-            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/#receptionists">
+            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/receptionists">
               Receptionists
             </Link>
-            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/#how-it-works">
+            <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/how-it-works">
               How It Works
             </Link>
             <Link className="text-on-surface-variant font-medium hover:text-primary transition-colors font-label-md text-label-md" href="/#solutions">
@@ -298,10 +298,10 @@ export default function FeaturesPage() {
             <p className="font-body-md md:font-body-lg text-body-lg text-on-surface-variant max-w-3xl mx-auto mb-12 text-center">
               Every interaction is logged, transcribed, and analyzed. Easily review past calls, listen to recordings, and understand exactly what was discussed.
             </p>
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[460px]">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row min-h-0 md:min-h-[460px]">
               {/* Call List */}
-              <div className="w-full md:w-2/3 border-r border-outline-variant overflow-y-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="w-full md:w-2/3 border-r border-outline-variant overflow-y-auto overflow-x-auto">
+                <table className="w-full min-w-[500px] text-left border-collapse">
                   <thead className="bg-surface sticky top-0">
                     <tr>
                       <th className="p-4 font-label-sm text-label-sm text-on-surface-variant font-medium border-b border-outline-variant">Caller</th>
@@ -691,7 +691,8 @@ export default function FeaturesPage() {
                   Invite User
                 </button>
               </div>
-              <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full min-w-[550px] text-left border-collapse">
                 <thead className="bg-surface-bright">
                   <tr>
                     <th className="p-4 font-label-sm text-label-sm text-on-surface-variant font-medium border-b border-outline-variant">Name</th>
@@ -735,7 +736,8 @@ export default function FeaturesPage() {
               </table>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
         {/* 9. Everything Connected (Workflow Diagram) */}
         <section className="px-margin-mobile md:px-margin-desktop py-16 md:py-24 max-w-container-max mx-auto border-b border-outline-variant">
@@ -792,8 +794,8 @@ export default function FeaturesPage() {
             <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg mb-12 text-center">
               How TIOS compares
             </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full max-w-4xl mx-auto bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[650px] max-w-4xl mx-auto bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
                 <thead className="bg-surface border-b border-outline-variant">
                   <tr>
                     <th className="p-6 font-headline-md text-headline-md w-1/4">Feature</th>

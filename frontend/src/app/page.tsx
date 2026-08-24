@@ -61,12 +61,12 @@ export default function PublicLandingPage() {
               <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/features">
                 Features
               </Link>
-              <a className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="#receptionists">
+              <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/receptionists">
                 Receptionists
-              </a>
-              <a className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="#how-it-works">
+              </Link>
+              <Link className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="/how-it-works">
                 How It Works
-              </a>
+              </Link>
               <a className="text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200" href="#solutions">
                 Solutions
               </a>
