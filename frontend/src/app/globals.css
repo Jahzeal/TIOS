@@ -1,35 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #050506;
-  --foreground: #f8fafc;
-  --card: #0c0d0f;
-  --card-foreground: #f8fafc;
-  --popover: #0c0d0f;
-  --popover-foreground: #f8fafc;
-  --primary: #f59e0b;
+  --background: #f7f9fb;
+  --foreground: #191c1e;
+  --card: #ffffff;
+  --card-foreground: #191c1e;
+  --popover: #ffffff;
+  --popover-foreground: #191c1e;
+  --primary: #000000;
   --primary-foreground: #ffffff;
-  --secondary: #17181c;
-  --secondary-foreground: #f8fafc;
-  --muted: #17181c;
-  --muted-foreground: #94a3b8;
-  --accent: #d97706;
+  --secondary: #515f74;
+  --secondary-foreground: #ffffff;
+  --muted: #f2f4f6;
+  --muted-foreground: #45464d;
+  --accent: #0c9488;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --destructive: #ba1a1a;
   --destructive-foreground: #ffffff;
-  --border: #18191e;
-  --input: #18191e;
-  --ring: #f59e0b;
+  --border: #c6c6cd;
+  --input: #e0e3e5;
+  --ring: #000000;
   --radius: 0.75rem;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Inter', sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, .font-geist {
+  font-family: 'Geist', sans-serif;
+}
+
+/* Material Icons setup */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.icon-fill {
+  font-variation-settings: 'FILL' 1;
+}
+
+/* Premium UI Utility Classes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.bento-card {
+  background-color: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.bento-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  border-color: #c6c6cd;
+}
+
+.premium-shadow {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+}
+
+/* Shimmer effect for AI elements */
+.shimmer-text {
+  background: linear-gradient(90deg, #191c1e 0%, #515f74 50%, #191c1e 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
 }
 
 /* Custom scrollbars */
@@ -38,12 +108,12 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050506;
+  background: #f7f9fb;
 }
 ::-webkit-scrollbar-thumb {
-  background: #17181c;
+  background: #c6c6cd;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f59e0b;
+  background: #515f74;
 }

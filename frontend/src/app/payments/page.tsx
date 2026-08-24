@@ -243,11 +243,10 @@ export default function PaymentsPage() {
         </div>
         <div className="flex items-center space-x-3">
           <span
-            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-              isLive
+            className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${isLive
                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                 : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-            }`}
+              }`}
           >
             <Activity className="h-3 w-3 animate-pulse" />
             <span>{isLive ? `${meta.total} Invoices & Quotes` : "API Offline (0 Invoices)"}</span>
@@ -305,19 +304,18 @@ export default function PaymentsPage() {
             <button
               key={f}
               onClick={() => handleFilterChange(f)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                filter === f
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${filter === f
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800"
-              }`}
+                }`}
             >
               {f === "ALL"
                 ? "All Quotes"
                 : f === "PENDING_QUOTE"
-                ? "Pending Quotes"
-                : f === "SMS_SENT"
-                ? "SMS Sent"
-                : "Paid / Converted"}
+                  ? "Pending Quotes"
+                  : f === "SMS_SENT"
+                    ? "SMS Sent"
+                    : "Paid / Converted"}
             </button>
           ))}
         </div>
@@ -356,17 +354,8 @@ export default function PaymentsPage() {
                 payments.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                     <td className="py-4 px-4">
-                      {(() => {
-                        const rawPhone = p.phone || "";
-                        const isWeb = !rawPhone || rawPhone === "Unknown" || rawPhone.includes("Web") || rawPhone.includes("Inbound Phone Call");
-                        const phoneDisplay = isWeb ? "+1 (Web Voice Call)" : rawPhone;
-                        return (
-                          <>
-                            <div className="font-semibold text-white">{phoneDisplay}</div>
-                            <div className="text-xs text-slate-400">{p.tenantName || "Hive Business"}</div>
-                          </>
-                        );
-                      })()}
+                      <div className="font-semibold text-white">{p.phone}</div>
+                      <div className="text-xs text-slate-400">{p.tenantName || "Hive Business"}</div>
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-200">
                       {p.inquiredService || "Utility Service Setup"}
@@ -374,34 +363,15 @@ export default function PaymentsPage() {
                     <td className="py-4 px-4 font-bold text-white">${Number(p.amount).toFixed(2)}</td>
                     <td className="py-4 px-4">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          p.status === "PAID"
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${p.status === "PAID"
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : p.status === "SMS_SENT"
-                            ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                        }`}
+                              ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          }`}
                       >
                         {p.status}
                       </span>
-                    </td>
-                    <td className="py-4 px-4 text-xs text-slate-400 whitespace-nowrap">
-                      {p.createdAt ? (
-                        <>
-                          {new Date(p.createdAt).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}{" "}
-                          •{" "}
-                          {new Date(p.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </>
-                      ) : (
-                        "—"
-                      )}
                     </td>
                     <td className="py-4 px-4 text-xs font-mono text-indigo-400">
                       <div className="flex items-center space-x-2">

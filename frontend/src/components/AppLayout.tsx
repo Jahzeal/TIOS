@@ -1,13 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState("agent-1");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Bypass internal dashboard layout for public marketing pages
+  if (pathname === "/" || pathname === "/features") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
