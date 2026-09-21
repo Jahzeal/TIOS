@@ -37,11 +37,27 @@ import {
   Zap,
   User,
   ExternalLink,
+  Phone,
+  CreditCard,
+  Cloud,
+  Shield,
+  Database,
+  Lock,
 } from "lucide-react";
 
 export default function PublicLandingPage() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([
+    "front-desk",
+    "sales",
+  ]);
+
+  const toggleAgent = (id: string) => {
+    setSelectedAgents((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    );
+  };
 
   return (
     <div className="bg-background text-on-background min-h-screen antialiased selection:bg-secondary-container selection:text-on-secondary-container">
@@ -54,7 +70,7 @@ export default function PublicLandingPage() {
               <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="font-geist tracking-tight text-xl font-bold">TIOS</span>
+              <span className="font-geist tracking-tight text-xl font-bold">Fluture</span>
             </Link>
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-6">
@@ -77,16 +93,17 @@ export default function PublicLandingPage() {
           </div>
 
           {/* Desktop & Mobile Actions */}
+            {/* Desktop & Mobile Actions */}
           <div className="flex items-center gap-3">
             <Link
               className="hidden md:block text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200 px-3 py-2"
-              href="/dashboard"
+              href="/login"
             >
               Log in
             </Link>
             <Link
               className="bg-primary text-on-primary text-label-md font-label-md px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-all active:scale-[0.98] duration-150"
-              href="/signup"
+              href="/onboarding"
             >
               Get Started
             </Link>
@@ -119,8 +136,8 @@ export default function PublicLandingPage() {
             <a onClick={() => setMobileNavOpen(false)} className="text-on-surface font-medium py-2 border-b border-outline-variant/30" href="#pricing">
               Pricing
             </a>
-            <Link onClick={() => setMobileNavOpen(false)} className="text-primary font-bold py-2" href="/dashboard">
-              Log in
+            <Link onClick={() => setMobileNavOpen(false)} className="text-primary font-bold py-2" href="/onboarding">
+              Get Started
             </Link>
           </div>
         )}
@@ -136,15 +153,15 @@ export default function PublicLandingPage() {
             {/* Text Content */}
             <div className="flex flex-col gap-6 z-10 max-w-2xl text-center lg:text-left mx-auto lg:mx-0">
               <h1 className="text-headline-lg-mobile md:text-display font-display text-on-background">
-                Your business never misses a <span className="shimmer-text">conversation.</span>
+                Never miss a lead. Never miss a <span className="shimmer-text">conversation.</span>
               </h1>
               <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant max-w-xl mx-auto lg:mx-0">
-                Deploy an intelligent voice receptionist that answers calls, captures leads, and schedules follow-ups 24/7. Precision voice automation engineered for modern enterprises.
+                Flucture combines autonomous B2B lead discovery with a 24/7 intelligent voice receptionist. Scrape prospects, send AI cold outreach, answer inbound calls, and book meetings on autopilot.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
                 <Link
-                  className="bg-primary text-on-primary px-6 py-3.5 rounded-lg text-label-md font-label-md font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2 w-full sm:w-auto"
-                  href="/dashboard"
+                  className="bg-primary text-on-primary px-6 py-3.5 rounded-lg text-label-md font-label-md font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2 w-full sm:w-auto shadow-md hover:shadow-primary/20"
+                  href="/onboarding"
                 >
                   Get Started
                   <ArrowRight className="w-4 h-4" />
@@ -290,29 +307,395 @@ export default function PublicLandingPage() {
           </div>
         </section>
 
-        {/* 3. Social Proof Section */}
-        <section className="py-10 border-y border-outline-variant bg-surface-container-lowest">
-          <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop text-center">
-            <p className="text-label-sm md:text-label-md font-label-md text-on-surface-variant mb-6 uppercase tracking-widest">
-              Built for businesses that depend on every conversation
-            </p>
-            <div className="flex flex-wrap justify-center gap-6 md:gap-14 items-center opacity-65 hover:opacity-100 transition-opacity duration-300">
-              <div className="flex items-center gap-2 text-on-surface font-bold text-headline-md font-headline-md text-[18px] md:text-[22px]">
-                <Building2 className="w-6 h-6" /> Acme Corp
+        {/* 3. AI Workforce Section */}
+        <section className="py-16 md:py-24 border-y border-outline-variant bg-surface-container-low">
+          <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop">
+            <div className="text-center max-w-2xl mx-auto mb-10 md:mb-14">
+              <p className="text-label-sm md:text-label-md font-label-md text-on-surface-variant uppercase tracking-widest font-semibold mb-3">
+                Built for businesses that depend on every conversation
+              </p>
+              <h2 className="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-on-surface">
+                Assemble Your Fluture AI Workforce
+              </h2>
+              <p className="text-body-md font-body-md text-on-surface-variant mt-2">
+                Choose one or more specialized AI agents to handle calls, drive sales, collect payments, and manage operations 24/7.
+              </p>
+            </div>
+
+            {/* AI Workforce Header & Controls */}
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-outline-variant">
+              <div className="flex items-center gap-2">
+                <span className="text-label-md font-label-md font-bold uppercase tracking-wider text-on-surface">
+                  Available AI Workers
+                </span>
+                <span className="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">
+                  8 Specialists
+                </span>
               </div>
-              <div className="flex items-center gap-2 text-on-surface font-bold text-headline-md font-headline-md text-[18px] md:text-[22px]">
-                <Zap className="w-6 h-6" /> Globex
+              <Link
+                href="/onboarding"
+                className="text-label-sm font-label-sm font-medium text-primary hover:opacity-80 flex items-center gap-1 transition-colors"
+              >
+                Configure in Onboarding <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* 8-Card Workforce Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Card 1: Fluture Front Desk */}
+              <div
+                onClick={() => toggleAgent("front-desk")}
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
+                  selectedAgents.includes("front-desk")
+                    ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
+                    : "hover:border-outline bg-surface-container-lowest"
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
+                        selectedAgents.includes("front-desk")
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-surface-container text-on-surface-variant"
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {selectedAgents.includes("front-desk") ? "SELECTED" : "ACTIVE"}
+                    </span>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture Front Desk
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-4">
+                    24/7 AI receptionist for inbound calls and bookings.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 py-2 mb-4 border-y border-outline-variant/40">
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">42</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Calls Today</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">12</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Bookings</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAgent("front-desk");
+                  }}
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+                    selectedAgents.includes("front-desk")
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
+                  }`}
+                >
+                  {selectedAgents.includes("front-desk") ? (
+                    <>
+                      <Check className="w-4 h-4" /> Added to workforce
+                    </>
+                  ) : (
+                    "+ Add to my workforce"
+                  )}
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-on-surface font-bold text-headline-md font-headline-md text-[18px] md:text-[22px]">
-                <Grid className="w-6 h-6" /> Initech
+
+              {/* Card 2: Fluture Sales */}
+              <div
+                onClick={() => toggleAgent("sales")}
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
+                  selectedAgents.includes("sales")
+                    ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
+                    : "hover:border-outline bg-surface-container-lowest"
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
+                        selectedAgents.includes("sales")
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-surface-container text-on-surface-variant"
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {selectedAgents.includes("sales") ? "SELECTED" : "ACTIVE"}
+                    </span>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture Sales
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-4">
+                    AI sales rep that qualifies leads and closes meetings.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 py-2 mb-4 border-y border-outline-variant/40">
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">34</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Qualified</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">9</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Demos Set</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAgent("sales");
+                  }}
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+                    selectedAgents.includes("sales")
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
+                  }`}
+                >
+                  {selectedAgents.includes("sales") ? (
+                    <>
+                      <Check className="w-4 h-4" /> Added to workforce
+                    </>
+                  ) : (
+                    "+ Add to my workforce"
+                  )}
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-on-surface font-bold text-headline-md font-headline-md text-[18px] md:text-[22px] hidden sm:flex">
-                <Sparkles className="w-6 h-6" /> Massive
+
+              {/* Card 3: Fluture Billing */}
+              <div
+                onClick={() => toggleAgent("billing")}
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
+                  selectedAgents.includes("billing")
+                    ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
+                    : "hover:border-outline bg-surface-container-lowest"
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
+                        selectedAgents.includes("billing")
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : "bg-surface-container text-on-surface-variant"
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {selectedAgents.includes("billing") ? "SELECTED" : "ACTIVE"}
+                    </span>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture Billing
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-4">
+                    AI billing coordinator for invoices and payments.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 py-2 mb-4 border-y border-outline-variant/40">
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">$2.3K</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Collected</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">5</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Invoices Due</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAgent("billing");
+                  }}
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+                    selectedAgents.includes("billing")
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
+                  }`}
+                >
+                  {selectedAgents.includes("billing") ? (
+                    <>
+                      <Check className="w-4 h-4" /> Added to workforce
+                    </>
+                  ) : (
+                    "+ Add to my workforce"
+                  )}
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-on-surface font-bold text-headline-md font-headline-md text-[18px] md:text-[22px] hidden md:flex">
-                <Activity className="w-6 h-6" /> Soylent
+
+              {/* Card 4: Fluture Recruiter (Coming Soon) */}
+              <div className="bento-card p-6 flex flex-col justify-between text-left bg-surface-container-lowest border-outline-variant/70 opacity-95">
+                <div>
+                  <div className="mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <User className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture Recruiter
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-4">
+                    AI talent screener for interviews and candidate intake.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 py-2 mb-4 border-y border-outline-variant/40">
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">89</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Candidates</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-on-surface">12</div>
+                      <div className="text-[10px] uppercase font-semibold text-on-surface-variant">Shortlisted</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium bg-surface-container/70 text-on-surface-variant/70 border border-outline-variant/60 flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                  <Lock className="w-3.5 h-3.5" /> Coming Soon
+                </div>
+              </div>
+
+              {/* Card 5: Fluture Support (Coming Soon) */}
+              <div className="bento-card p-6 flex flex-col justify-between text-left bg-surface-container-lowest border-outline-variant/70 opacity-95">
+                <div>
+                  <div className="mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture Support
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-6">
+                    AI customer care agent for multi-channel inquiries and tickets.
+                  </p>
+                </div>
+
+                <div className="w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium bg-surface-container/70 text-on-surface-variant/70 border border-outline-variant/60 flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                  <Lock className="w-3.5 h-3.5" /> Coming Soon
+                </div>
+              </div>
+
+              {/* Card 6: Fluture CloudOps (Coming Soon) */}
+              <div className="bento-card p-6 flex flex-col justify-between text-left bg-surface-container-lowest border-outline-variant/70 opacity-95">
+                <div>
+                  <div className="mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <Cloud className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture CloudOps
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-6">
+                    AI Azure & cloud infrastructure automation engineer.
+                  </p>
+                </div>
+
+                <div className="w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium bg-surface-container/70 text-on-surface-variant/70 border border-outline-variant/60 flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                  <Lock className="w-3.5 h-3.5" /> Coming Soon
+                </div>
+              </div>
+
+              {/* Card 7: Fluture SecOps (Coming Soon) */}
+              <div className="bento-card p-6 flex flex-col justify-between text-left bg-surface-container-lowest border-outline-variant/70 opacity-95">
+                <div>
+                  <div className="mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture SecOps
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-6">
+                    AI cybersecurity analyst monitoring alerts and posture.
+                  </p>
+                </div>
+
+                <div className="w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium bg-surface-container/70 text-on-surface-variant/70 border border-outline-variant/60 flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                  <Lock className="w-3.5 h-3.5" /> Coming Soon
+                </div>
+              </div>
+
+              {/* Card 8: Fluture DataOps (Coming Soon) */}
+              <div className="bento-card p-6 flex flex-col justify-between text-left bg-surface-container-lowest border-outline-variant/70 opacity-95">
+                <div>
+                  <div className="mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-surface-container text-primary flex items-center justify-center border border-outline-variant/60">
+                      <Database className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md text-on-surface text-[19px] mb-1">
+                    Fluture DataOps
+                  </h3>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mb-6">
+                    AI data engineer automating pipelines and reporting.
+                  </p>
+                </div>
+
+                <div className="w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium bg-surface-container/70 text-on-surface-variant/70 border border-outline-variant/60 flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                  <Lock className="w-3.5 h-3.5" /> Coming Soon
+                </div>
               </div>
             </div>
+
+            {/* Dynamic Sticky Deployment Bar */}
+            {selectedAgents.length > 0 && (
+              <div className="mt-8 p-4 md:p-6 rounded-2xl bg-surface-container-lowest border-2 border-primary shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">
+                    {selectedAgents.length}
+                  </div>
+                  <div>
+                    <h4 className="text-headline-md font-headline-md text-on-surface text-base md:text-lg flex items-center gap-2">
+                      <span>{selectedAgents.length} Fluture AI {selectedAgents.length === 1 ? "Agent" : "Agents"} Selected</span>
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                        {selectedAgents.length === 1 && "$99/mo"}
+                        {selectedAgents.length === 2 && "$179/mo (Save 10%)"}
+                        {selectedAgents.length >= 3 && "$249/mo (Save 15%)"}
+                      </span>
+                    </h4>
+                    <p className="text-body-sm font-body-sm text-on-surface-variant">
+                      Active: {selectedAgents.map((a) => a.charAt(0).toUpperCase() + a.slice(1).replace("-", " ")).join(", ")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <button
+                    onClick={() => setSelectedAgents([])}
+                    className="text-label-sm font-label-sm text-on-surface-variant hover:text-on-surface px-3 py-2"
+                  >
+                    Clear
+                  </button>
+                  <Link
+                    href={`/onboarding?agents=${selectedAgents.join(",")}`}
+                    className="bg-primary text-on-primary px-6 py-3 rounded-lg text-label-md font-label-md font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2 w-full md:w-auto shadow-md"
+                  >
+                    Deploy Selected Workforce ({selectedAgents.length === 1 ? "$99/mo" : selectedAgents.length === 2 ? "$179/mo" : "$249/mo"})
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -382,7 +765,7 @@ export default function PublicLandingPage() {
                 Meet your intelligent voice receptionist
               </h2>
               <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant">
-                TIOS handles your frontlines, ensuring every caller speaks to a knowledgeable representative instantly. It understands intent and drives action.
+                Fluture handles your frontlines, ensuring every caller speaks to a knowledgeable representative instantly. It understands intent and drives action.
               </p>
             </div>
 
@@ -438,7 +821,7 @@ export default function PublicLandingPage() {
               </div>
               <h3 className="text-headline-md font-headline-md text-[20px] md:text-[22px] mb-2">Connect</h3>
               <p className="text-body-sm font-body-sm text-on-surface-variant max-w-xs">
-                Claim your TIOS phone number or forward your existing business lines.
+                Claim your Fluture phone number or forward your existing business lines.
               </p>
             </div>
             <div className="flex-1 text-center relative z-10 flex flex-col items-center">
@@ -470,7 +853,7 @@ export default function PublicLandingPage() {
                 A receptionist that truly understands your business.
               </h2>
               <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant mb-6">
-                TIOS isn&apos;t a frustrating phone tree. It uses advanced LLMs to engage in free-flowing conversations, gracefully handling interruptions, context switching, and complex inquiries just like a human.
+                Fluture isn&apos;t a frustrating phone tree. It uses advanced LLMs to engage in free-flowing conversations, gracefully handling interruptions, context switching, and complex inquiries just like a human.
               </p>
               <ul className="flex flex-col gap-4 mb-8">
                 <li className="flex items-start gap-3">
@@ -501,7 +884,7 @@ export default function PublicLandingPage() {
               <div className="w-full h-full bg-surface-container-lowest rounded-[2.5rem] overflow-hidden flex flex-col relative z-10">
                 <div className="bg-surface-container-low p-4 text-center border-b border-outline-variant shrink-0 pt-8">
                   <p className="text-label-sm font-label-sm text-on-surface-variant">Ongoing Call</p>
-                  <p className="text-headline-md font-headline-md font-semibold text-primary">TIOS Receptionist</p>
+                  <p className="text-headline-md font-headline-md font-semibold text-primary">Fluture Receptionist</p>
                   <p className="text-label-sm font-label-sm text-tertiary-fixed-dim flex items-center justify-center gap-1 mt-1 font-medium">
                     <span className="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
                     03:42
@@ -579,7 +962,7 @@ export default function PublicLandingPage() {
         <section className="py-16 md:py-24 bg-surface-container-low border-y border-outline-variant">
           <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop text-center">
             <h2 className="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-on-surface mb-4">Connects with your tools</h2>
-            <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant mb-10">TIOS seamlessly integrates into your existing CRMs and calendars.</p>
+            <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant mb-10">Fluture seamlessly integrates into your existing CRMs and calendars.</p>
             <div className="flex flex-wrap justify-center gap-4 md:gap-6">
               <div className="bg-surface-container-lowest px-5 py-3.5 rounded-xl border border-outline-variant flex items-center gap-3 premium-shadow">
                 <Calendar className="w-5 h-5 text-primary" />
@@ -699,8 +1082,8 @@ export default function PublicLandingPage() {
                   </li>
                 </ul>
                 <Link
-                  href="/dashboard"
-                  className="w-full py-3 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors text-label-md font-label-md font-medium text-center"
+                  href="/onboarding?plan=starter"
+                  className="w-full py-3 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors text-label-md font-label-md font-medium text-center block"
                 >
                   Get Started
                 </Link>
@@ -732,8 +1115,8 @@ export default function PublicLandingPage() {
                   </li>
                 </ul>
                 <Link
-                  href="/dashboard"
-                  className="w-full py-3 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-opacity text-label-md font-label-md font-medium text-center"
+                  href="/onboarding?plan=business"
+                  className="w-full py-3 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-opacity text-label-md font-label-md font-medium text-center block shadow-md hover:shadow-primary/20"
                 >
                   Start Free Trial
                 </Link>
@@ -777,12 +1160,12 @@ export default function PublicLandingPage() {
             Never miss the next important conversation.
           </h2>
           <p className="text-body-md md:text-body-lg font-body-lg text-on-surface-variant max-w-2xl mx-auto mb-8">
-            Join hundreds of businesses that use TIOS to automate their frontlines, capture more leads, and provide instant 24/7 support.
+            Join hundreds of businesses that use Fluture to automate their frontlines, capture more leads, and provide instant 24/7 support.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              className="bg-primary text-on-primary px-8 py-4 rounded-lg text-label-md font-label-md font-medium hover:opacity-90 transition-opacity w-full sm:w-auto"
-              href="/dashboard"
+              className="bg-primary text-on-primary px-8 py-4 rounded-lg text-label-md font-label-md font-medium hover:opacity-90 transition-opacity w-full sm:w-auto shadow-md hover:shadow-primary/20"
+              href="/onboarding"
             >
               Create your Receptionist
             </Link>
@@ -804,10 +1187,10 @@ export default function PublicLandingPage() {
               <div className="w-7 h-7 rounded-lg bg-primary text-on-primary flex items-center justify-center">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <span className="font-geist font-bold text-lg">TIOS</span>
+              <span className="font-geist font-bold text-lg">Fluture</span>
             </Link>
             <p className="text-body-sm font-body-sm text-on-surface-variant max-w-sm">
-              © 2026 TIOS AI Inc. All rights reserved. Precision voice automation for the modern enterprise.
+              © 2026 Fluture AI Inc. All rights reserved. Precision voice automation for the modern enterprise.
             </p>
           </div>
           <div className="flex flex-col gap-2.5">

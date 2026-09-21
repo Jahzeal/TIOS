@@ -48,7 +48,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarPr
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-bold text-white tracking-wide text-lg">TIOS OS</h1>
+            <h1 className="font-bold text-white tracking-wide text-lg">Fluture OS</h1>
             <p className="text-xs text-indigo-400 font-medium">AI Receptionist Gateway</p>
           </div>
         </div>

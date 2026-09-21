@@ -11,8 +11,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [selectedAgentId, setSelectedAgentId] = useState("agent-1");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Bypass internal dashboard layout for public marketing pages
-  if (pathname === "/" || pathname === "/features" || pathname === "/receptionists" || pathname === "/how-it-works" || pathname === "/solutions" || pathname === "/pricing" || pathname === "/signup" || pathname === "/onboarding") {
+  // Bypass internal dashboard layout for public marketing, auth, and onboarding pages
+  const PUBLIC_PREFIXES = [
+    "/",
+    "/features",
+    "/receptionists",
+    "/how-it-works",
+    "/solutions",
+    "/pricing",
+    "/signup",
+    "/onboarding",
+    "/login",
+    "/forgot-password",
+    "/reset-password",
+  ];
+
+  const isPublicPage = PUBLIC_PREFIXES.some(
+    (route) => pathname === route || (route !== "/" && pathname?.startsWith(`${route}/`))
+  );
+
+  if (isPublicPage) {
     return <>{children}</>;
   }
 

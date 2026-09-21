@@ -3,8 +3,8 @@ import "./globals.css";
 import AppLayout from "@/components/AppLayout";
 
 export const metadata: Metadata = {
-  title: "TIOS | 24/7 AI Receptionist & Sales Agent Dashboard",
-  description: "AI receptionist that answers calls, qualifies leads, schedules appointments, and runs outbound sales campaigns.",
+  title: "Fluture | 24/7 AI Workforce & Voice Receptionist Platform",
+  description: "Enterprise AI workforce for high-converting phone calls, appointment booking, lead qualification, and customer support.",
 };
 
 export default function RootLayout({

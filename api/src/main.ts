@@ -8,7 +8,10 @@ async function bootstrap() {
 
   const allowedOrigins = [
     'https://tios-frontend.vercel.app',
+    'https://fluture.vercel.app',
     'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
     'http://localhost:5000',
   ];
 
@@ -17,14 +20,14 @@ async function bootstrap() {
       // Allow non-browser requests (like Twilio webhooks, Postman, server-to-server)
       if (!requestOrigin) return callback(null, true);
 
-      const isAllowed =
-        allowedOrigins.includes(requestOrigin) ||
-        requestOrigin.endsWith('.vercel.app');
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin);
+      const isVercel = requestOrigin.endsWith('.vercel.app');
+      const isExplicitlyAllowed = allowedOrigins.includes(requestOrigin);
 
-      if (isAllowed) {
+      if (isLocalhost || isVercel || isExplicitlyAllowed) {
         callback(null, true);
       } else {
-        callback(new Error('Blocked by CORS security policy'));
+        callback(null, false);
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

@@ -11,6 +11,7 @@ import { QueueModule } from './queue/queue.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TenantsModule } from './tenants/tenants.module';
     PaymentsModule,
     MessagingModule,
     TenantsModule,
+    OnboardingModule,
   ],
 })
 export class AppModule {}

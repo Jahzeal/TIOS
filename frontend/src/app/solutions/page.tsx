@@ -74,7 +74,7 @@ export default function SolutionsPage() {
               <div className="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-bold text-sm">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-headline-md font-headline-md font-bold text-on-surface tracking-tight">TIOS</span>
+              <span className="text-headline-md font-headline-md font-bold text-on-surface tracking-tight">Fluture</span>
             </Link>
           </div>
 
