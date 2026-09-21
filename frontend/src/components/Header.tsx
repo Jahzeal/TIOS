@@ -63,7 +63,7 @@ export default function Header({
     });
     setAccountType(type);
     if (type === "SALES") {
-      window.location.href = "https://aios-kkkl.onrender.com/dashboard";
+      window.location.href = "https://aios-kkkl.onrender.com";
     } else {
       window.location.href = "/dashboard";
     }

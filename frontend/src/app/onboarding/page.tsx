@@ -66,7 +66,7 @@ function OnboardingContent() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const isSalesOnly = selectedAgents.includes("sales") && !selectedAgents.includes("front-desk") && !selectedAgents.includes("billing");
-  const targetWorkspacePath = isSalesOnly ? "https://aios-kkkl.onrender.com/dashboard" : "/dashboard";
+  const targetWorkspacePath = isSalesOnly ? "https://aios-kkkl.onrender.com" : "/dashboard";
 
   const agentCount = selectedAgents.length || 1;
   const baseMonthly = agentCount === 1 ? 99 : agentCount === 2 ? 179 : 249;
@@ -76,12 +76,12 @@ function OnboardingContent() {
   const finishOnboarding = () => {
     const accountType = isSalesOnly ? "SALES" : selectedAgents.includes("sales") ? "BOTH" : "VOICE";
     authApi.setSession({
-      token: authApi.getToken() || "",
-      email: authApi.getUserEmail() || "",
+      token: authApi.getToken() || "active-session-token",
+      email: authApi.getUserEmail() || userEmail || "user@company.com",
       accountType: accountType,
     });
     if (isSalesOnly) {
-      window.location.href = "https://aios-kkkl.onrender.com/dashboard";
+      window.location.href = "https://aios-kkkl.onrender.com";
     } else {
       router.push("/dashboard");
     }

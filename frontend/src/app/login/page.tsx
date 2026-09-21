@@ -114,7 +114,7 @@ export default function LoginPage() {
   const routeUserAfterLogin = (accountType?: string) => {
     const type = accountType || authApi.getAccountType();
     if (type === "SALES") {
-      window.location.href = "https://aios-kkkl.onrender.com/dashboard";
+      window.location.href = "https://aios-kkkl.onrender.com";
     } else {
       window.location.href = "/dashboard";
     }
