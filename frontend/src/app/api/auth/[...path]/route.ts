@@ -204,7 +204,10 @@ export async function GET(
 
     if (subpath.includes("client-id")) {
       return NextResponse.json({
-        clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || null,
+        clientId:
+          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+          process.env.GOOGLE_CLIENT_ID ||
+          "380893447009-2qdlor8t4lmhmrv4nn56mespdu637is4.apps.googleusercontent.com",
       });
     }
 
