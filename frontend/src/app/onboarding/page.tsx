@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
+  LogIn,
 } from "lucide-react";
 
 interface PhoneNumberOption {
@@ -516,6 +517,13 @@ function OnboardingContent() {
             <HelpCircle className="w-4 h-4" />
             Need help?
           </button>
+          <Link
+            href="/login"
+            className="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs border border-outline-variant hover:border-primary transition-all flex items-center gap-1.5"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Log in</span>
+          </Link>
           <Link
             href={targetWorkspacePath}
             onClick={() => {
