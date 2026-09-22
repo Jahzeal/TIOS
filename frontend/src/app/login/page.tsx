@@ -111,7 +111,7 @@ export default function LoginPage() {
     }
   }, [viewMode, resendCountdown]);
 
-  const routeUserAfterLogin = (accountType?: string, token?: string, userEmail?: string) => {
+  const routeUserAfterLogin = (accountType?: string) => {
     const type = accountType || authApi.getAccountType();
     if (type === "SALES") {
       window.location.href = "/sales";
@@ -126,12 +126,13 @@ export default function LoginPage() {
     setErrorMessage(null);
     try {
       const res = await authApi.googleLogin(response.credential);
+      const effectiveType = res.accountType || "SALES";
       authApi.setSession({
         token: res.token,
         email: res.email,
-        accountType: (res.accountType as any) || "VOICE",
+        accountType: effectiveType as any,
       });
-      routeUserAfterLogin(res.accountType, res.token, res.email);
+      routeUserAfterLogin(effectiveType);
     } catch (err: any) {
       setErrorMessage(err.message || "Google Sign-In failed.");
       setLoading(false);
@@ -145,13 +146,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await authApi.login({ email: email.trim(), password });
+      const res = await authApi.login({
+        email: email.trim(),
+        password,
+      });
+      const effectiveType = res.accountType || "SALES";
       authApi.setSession({
         token: res.token,
         email: res.email,
-        accountType: (res.accountType as any) || "VOICE",
+        accountType: effectiveType as any,
       });
-      routeUserAfterLogin(res.accountType, res.token, res.email);
+      routeUserAfterLogin(effectiveType);
     } catch (err: any) {
       setErrorMessage(err.message || "Invalid email or password. Please try again.");
       setLoading(false);

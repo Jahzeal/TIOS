@@ -34,7 +34,8 @@ export class AuthController {
     }
 
     const token = this.authService.createToken(user.id, user.email);
-    return { token, email: user.email };
+    const accountType = (user as any).accountType || body.accountType || 'SALES';
+    return { token, email: user.email, accountType, userId: user.id };
   }
 
   // ─── Me ──────────────────────────────────────────────────────────
@@ -95,11 +96,12 @@ export class AuthController {
         username,
         email: email.toLowerCase().trim(),
         password: hashed,
+        accountType: body.accountType || 'SALES',
       },
     });
 
     const token = this.authService.createToken(user.id, user.email);
-    return { token, email: user.email };
+    return { token, email: user.email, accountType: user.accountType, userId: user.id };
   }
 
   // ─── Google Sign-In ────────────────────────────────────────────────

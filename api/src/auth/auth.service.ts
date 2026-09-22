@@ -216,7 +216,8 @@ export class AuthService implements OnModuleInit {
     }
 
     const token = this.createToken(user.id, user.email);
-    return { token, email: user.email };
+    const accountType = (user as any).accountType || 'SALES';
+    return { token, email: user.email, accountType, userId: user.id };
   }
 
   async sendForgotPasswordOtp(email: string): Promise<void> {
