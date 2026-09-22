@@ -3,7 +3,11 @@
 let isRedirectingToLogin = false;
 
 export const API = async (path, token, opts = {}) => {
-  const res = await fetch(path, {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const isAbsolute = path.startsWith("http://") || path.startsWith("https://");
+  const targetUrl = isAbsolute ? path : `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const res = await fetch(targetUrl, {
     ...opts,
     headers: {
       Authorization: `Bearer ${token}`,
