@@ -5,9 +5,33 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getStats(tenantId?: string) {
+  async getStats(tenantId?: string, userId?: string) {
     try {
-      const callFilter = tenantId ? { tenantId } : undefined;
+      // Resolve tenantId if userId is provided
+      let resolvedTenantId = tenantId;
+      if (!resolvedTenantId && userId) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        resolvedTenantId = (user as any)?.tenantId || undefined;
+      }
+
+      // If user has no tenant assigned yet (new user), return zeroed stats immediately
+      if (userId && !resolvedTenantId) {
+        return {
+          totalCalls: 0,
+          inboundCalls: 0,
+          outboundCalls: 0,
+          avgDurationSeconds: 0,
+          conversionRatePercent: 0,
+          leadsGenerated: 0,
+          appointmentsBooked: 0,
+          totalDepositsAmount: 0,
+          totalDepositsCount: 0,
+        };
+      }
+
+      const callFilter = resolvedTenantId ? { tenantId: resolvedTenantId } : undefined;
       const [
         totalCalls,
         inboundCalls,
@@ -23,7 +47,7 @@ export class DashboardService {
         this.prisma.lead.count({
           where: {
             calls: {
-              some: tenantId ? { tenantId } : {},
+              some: resolvedTenantId ? { tenantId: resolvedTenantId } : {},
             },
           },
         }).catch(() => 0),
@@ -34,7 +58,7 @@ export class DashboardService {
         }).catch(() => ({ _avg: { duration: 0 } })),
         this.prisma.payment.aggregate({
           where: {
-            ...(tenantId ? { tenantId } : {}),
+            ...(resolvedTenantId ? { tenantId: resolvedTenantId } : {}),
             status: 'PAID',
           },
           _sum: { amount: true },
@@ -73,10 +97,23 @@ export class DashboardService {
     }
   }
 
-  async getRecentCalls(limit = 5) {
+  async getRecentCalls(limit = 5, tenantId?: string, userId?: string) {
     try {
+      let resolvedTenantId = tenantId;
+      if (!resolvedTenantId && userId) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
+        resolvedTenantId = (user as any)?.tenantId || undefined;
+      }
+
+      if (userId && !resolvedTenantId) {
+        return [];
+      }
+
       const take = Math.max(1, Math.min(50, Number(limit) || 5));
       const calls = await this.prisma.call.findMany({
+        where: resolvedTenantId ? { tenantId: resolvedTenantId } : undefined,
         take,
         orderBy: { createdAt: 'desc' },
         include: { tenant: true, agent: true },

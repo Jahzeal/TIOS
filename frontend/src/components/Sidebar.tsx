@@ -16,7 +16,9 @@ import {
   Building2,
   Sparkles,
   X,
+  LogOut,
 } from "lucide-react";
+import { authApi } from "@/lib/api";
 
 interface SidebarProps {
   mobileMenuOpen?: boolean;
@@ -84,6 +86,20 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarPr
           );
         })}
       </nav>
+
+      {/* Sign Out Button */}
+      <div className="pt-2 mb-2">
+        <button
+          onClick={() => {
+            authApi.clearSession();
+            window.location.href = "/login";
+          }}
+          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-200 hover:bg-rose-500/10 border border-rose-500/20 transition-all cursor-pointer"
+        >
+          <LogOut className="h-4 w-4 text-rose-400" />
+          <span>Sign Out</span>
+        </button>
+      </div>
 
       {/* Footer System Status */}
       <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 mt-auto">
