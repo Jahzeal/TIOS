@@ -56,14 +56,16 @@ export default function Header({
   }, [selectedAgentId, setSelectedAgentId]);
 
   const toggleWorkspace = (type: "SALES" | "VOICE") => {
+    const token = authApi.getToken() || "";
+    const email = authApi.getUserEmail() || "";
     authApi.setSession({
-      token: authApi.getToken() || "",
-      email: authApi.getUserEmail() || "",
+      token,
+      email,
       accountType: type,
     });
     setAccountType(type);
     if (type === "SALES") {
-      window.location.href = "https://aios-kkkl.onrender.com";
+      window.location.href = `https://aios-kkkl.onrender.com?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&auth=true`;
     } else {
       window.location.href = "/dashboard";
     }

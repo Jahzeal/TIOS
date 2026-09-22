@@ -111,10 +111,12 @@ export default function LoginPage() {
     }
   }, [viewMode, resendCountdown]);
 
-  const routeUserAfterLogin = (accountType?: string) => {
+  const routeUserAfterLogin = (accountType?: string, token?: string, userEmail?: string) => {
     const type = accountType || authApi.getAccountType();
     if (type === "SALES") {
-      window.location.href = "https://aios-kkkl.onrender.com";
+      const activeToken = token || authApi.getToken() || "";
+      const activeEmail = userEmail || authApi.getUserEmail() || "";
+      window.location.href = `https://aios-kkkl.onrender.com?token=${encodeURIComponent(activeToken)}&email=${encodeURIComponent(activeEmail)}&auth=true`;
     } else {
       window.location.href = "/dashboard";
     }
@@ -131,7 +133,7 @@ export default function LoginPage() {
         email: res.email,
         accountType: (res.accountType as any) || "VOICE",
       });
-      routeUserAfterLogin(res.accountType);
+      routeUserAfterLogin(res.accountType, res.token, res.email);
     } catch (err: any) {
       setErrorMessage(err.message || "Google Sign-In failed.");
       setLoading(false);
@@ -151,7 +153,7 @@ export default function LoginPage() {
         email: res.email,
         accountType: (res.accountType as any) || "VOICE",
       });
-      routeUserAfterLogin(res.accountType);
+      routeUserAfterLogin(res.accountType, res.token, res.email);
     } catch (err: any) {
       setErrorMessage(err.message || "Invalid email or password. Please try again.");
       setLoading(false);

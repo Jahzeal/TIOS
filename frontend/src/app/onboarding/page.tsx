@@ -75,13 +75,15 @@ function OnboardingContent() {
 
   const finishOnboarding = () => {
     const accountType = isSalesOnly ? "SALES" : selectedAgents.includes("sales") ? "BOTH" : "VOICE";
+    const token = authApi.getToken() || "active-session-token";
+    const email = authApi.getUserEmail() || userEmail || "user@company.com";
     authApi.setSession({
-      token: authApi.getToken() || "active-session-token",
-      email: authApi.getUserEmail() || userEmail || "user@company.com",
+      token,
+      email,
       accountType: accountType,
     });
     if (isSalesOnly) {
-      window.location.href = "https://aios-kkkl.onrender.com";
+      window.location.href = `https://aios-kkkl.onrender.com?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&auth=true`;
     } else {
       router.push("/dashboard");
     }
