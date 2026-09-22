@@ -29,7 +29,7 @@ export class AuthService implements OnModuleInit {
   constructor(
     @Inject(PrismaService) private prisma: PrismaService,
     @Optional() @Inject(ConfigService) private configService?: ConfigService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     try {

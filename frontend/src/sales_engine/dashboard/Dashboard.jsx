@@ -6,35 +6,35 @@ import {
 } from 'lucide-react';
 
 import { API } from './shared.jsx';
-import Overview      from './Overview.jsx';
-import Discovery     from './Discovery.jsx';
-import LeadsPanel    from './LeadsPanel.jsx';
+import Overview from './Overview.jsx';
+import Discovery from './Discovery.jsx';
+import LeadsPanel from './LeadsPanel.jsx';
 import OutreachPanel from './OutreachPanel.jsx';
-import RepliesPanel  from './RepliesPanel.jsx';
+import RepliesPanel from './RepliesPanel.jsx';
 import MeetingsPanel from './MeetingsPanel.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
 
 /* ─── Navigation items ─── */
 const NAV_ITEMS = [
-  { id: 'overview',  label: 'Overview',      Icon: Zap },
+  { id: 'overview', label: 'Overview', Icon: Zap },
   { id: 'discovery', label: 'Lead Discovery', Icon: Search },
-  { id: 'leads',     label: 'Leads Database', Icon: FolderOpen },
-  { id: 'outreach',  label: 'Outreach',       Icon: Mail },
-  { id: 'replies',   label: 'Replies',        Icon: MessageSquare },
-  { id: 'meetings',  label: 'Meetings',       Icon: Calendar },
-  { id: 'settings',  label: 'Settings',       Icon: SettingsIcon },
+  { id: 'leads', label: 'Leads Database', Icon: FolderOpen },
+  { id: 'outreach', label: 'Outreach', Icon: Mail },
+  { id: 'replies', label: 'Replies', Icon: MessageSquare },
+  { id: 'meetings', label: 'Meetings', Icon: Calendar },
+  { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
 /* ─── Dashboard shell ─── */
 export default function Dashboard({ token, onLogout }) {
-  const [activeTab,   setActiveTab]   = useState('overview');
-  const [jobs,        setJobs]        = useState([]);
-  const [leads,       setLeads]       = useState([]);
-  const [emailStats,  setEmailStats]  = useState({ sentToday: 0, dailyCap: 15 });
-  const [replies,     setReplies]     = useState([]);
-  const [meetings,    setMeetings]    = useState([]);
-  const [settings,    setSettings]    = useState(null);
-  const [msg,         setMsg]         = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [jobs, setJobs] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [emailStats, setEmailStats] = useState({ sentToday: 0, dailyCap: 15 });
+  const [replies, setReplies] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [msg, setMsg] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [googleConnection, setGoogleConnection] = useState(null);
   const [leadFilterJobId, setLeadFilterJobId] = useState(null);
@@ -109,12 +109,12 @@ export default function Dashboard({ token, onLogout }) {
   const loadAll = useCallback(async () => {
     try {
       const [j, l, s, r, m, em, gc] = await Promise.all([
-        API('/api/jobs',           token).then(r => r.json()),
-        API('/api/leads',          token).then(r => r.json()),
+        API('/api/jobs', token).then(r => r.json()),
+        API('/api/leads', token).then(r => r.json()),
         API('/api/email/settings', token).then(r => r.json()),
-        API('/api/email/replies',  token).then(r => r.json()),
-        API('/api/meetings',       token).then(r => r.json()),
-        API('/api/email/status',   token).then(r => r.json()),
+        API('/api/email/replies', token).then(r => r.json()),
+        API('/api/meetings', token).then(r => r.json()),
+        API('/api/email/status', token).then(r => r.json()),
         API('/api/meetings/google/connection', token).then(r => r.json()).catch(() => ({ connected: false })),
       ]);
       setJobs(Array.isArray(j) ? j : []);
@@ -222,16 +222,16 @@ export default function Dashboard({ token, onLogout }) {
 
   /* Map tab id → panel component */
   const panels = {
-    overview:  <Overview      jobs={jobs} leads={leads} emailStats={emailStats} googleConnection={googleConnection} onNavigate={setActiveTab} />,
-    discovery: <Discovery     token={token} jobs={jobs} onRefresh={loadAll} onNotify={notify} onViewJobLeads={handleViewJobLeads} settings={settings} />,
-    leads:     <LeadsPanel    token={token} leads={leads} jobs={jobs} leadFilterJobId={leadFilterJobId} setLeadFilterJobId={setLeadFilterJobId} onNotify={notify} onRefresh={loadAll} />,
-    outreach:  <OutreachPanel leads={leads} selectedLeadId={selectedOutreachLeadId} setSelectedLeadId={setSelectedOutreachLeadId} token={token} onLoadAll={loadAll} />,
-    replies:   <RepliesPanel  replies={replies} onViewReplyLead={(leadId) => {
+    overview: <Overview jobs={jobs} leads={leads} emailStats={emailStats} googleConnection={googleConnection} onNavigate={setActiveTab} />,
+    discovery: <Discovery token={token} jobs={jobs} onRefresh={loadAll} onNotify={notify} onViewJobLeads={handleViewJobLeads} settings={settings} />,
+    leads: <LeadsPanel token={token} leads={leads} jobs={jobs} leadFilterJobId={leadFilterJobId} setLeadFilterJobId={setLeadFilterJobId} onNotify={notify} onRefresh={loadAll} />,
+    outreach: <OutreachPanel leads={leads} selectedLeadId={selectedOutreachLeadId} setSelectedLeadId={setSelectedOutreachLeadId} token={token} onLoadAll={loadAll} />,
+    replies: <RepliesPanel replies={replies} onViewReplyLead={(leadId) => {
       setSelectedOutreachLeadId(leadId);
       setActiveTab('outreach');
     }} />,
-    meetings:  <MeetingsPanel meetings={meetings} />,
-    settings:  <SettingsPanel token={token} settings={settings} setSettings={setSettings} googleConnection={googleConnection} onRefreshConnection={loadAll} onNotify={notify} />,
+    meetings: <MeetingsPanel meetings={meetings} />,
+    settings: <SettingsPanel token={token} settings={settings} setSettings={setSettings} googleConnection={googleConnection} onRefreshConnection={loadAll} onNotify={notify} />,
   };
 
   /* ─── Shared inline style helpers ─── */
@@ -248,8 +248,8 @@ export default function Dashboard({ token, onLogout }) {
     padding: '0.65rem 1rem', margin: '2px 0.5rem', borderRadius: 10,
     cursor: 'pointer', transition: 'all 0.18s',
     background: active ? 'rgba(99,102,241,0.18)' : 'transparent',
-    color:      active ? '#a5b4fc'               : 'rgba(248,250,252,0.5)',
-    borderLeft: active ? '3px solid #6366f1'     : '3px solid transparent',
+    color: active ? '#a5b4fc' : 'rgba(248,250,252,0.5)',
+    borderLeft: active ? '3px solid #6366f1' : '3px solid transparent',
     fontSize: '0.87rem', fontWeight: active ? 700 : 500, whiteSpace: 'nowrap',
   });
 
@@ -418,15 +418,15 @@ export default function Dashboard({ token, onLogout }) {
 
       {/* Backdrop for mobile */}
       {sidebarOpen && (
-        <div 
-          className="dashboard-backdrop" 
-          style={{ display: 'none' }} 
-          onClick={() => setSidebarOpen(false)} 
+        <div
+          className="dashboard-backdrop"
+          style={{ display: 'none' }}
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ── Sidebar ── */}
-      <div 
+      <div
         className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarMode === 'filters' && activeTab === 'discovery' ? 'filters-sidebar-active' : ''}`}
         style={{
           width: sidebarOpen ? (sidebarMode === 'filters' && activeTab === 'discovery' ? 300 : 220) : 64, flexShrink: 0, transition: 'all 0.25s ease',
@@ -438,7 +438,7 @@ export default function Dashboard({ token, onLogout }) {
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             {/* Header */}
             <div style={{ padding: '1.2rem 1.1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <button 
+              <button
                 onClick={() => {
                   setSidebarMode('navigation');
                   setSidebarOpen(window.innerWidth > 768);
@@ -449,7 +449,7 @@ export default function Dashboard({ token, onLogout }) {
                 <ArrowLeft size={18} />
               </button>
               <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc' }}>Filters</span>
-              
+
               {/* Utility icons */}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem', color: 'rgba(248, 250, 252, 0.3)' }}>
                 <Folder size={14} style={{ cursor: 'pointer' }} />
@@ -474,10 +474,10 @@ export default function Dashboard({ token, onLogout }) {
                 const isOpen = !!expandedFilters[key];
                 return (
                   <div key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', padding: '0.6rem 0.75rem' }}>
-                    <div 
+                    <div
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0' }}
                     >
-                      <div 
+                      <div
                         onClick={() => setExpandedFilters(prev => ({ ...prev, [key]: !prev[key] }))}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 1 }}
                       >
@@ -489,7 +489,7 @@ export default function Dashboard({ token, onLogout }) {
                           <span className="tooltip-text" style={{ bottom: '135%', left: '0%', transform: 'none', textAlign: 'left', width: '200px' }}>{desc}</span>
                         </div>
                       </div>
-                      <span 
+                      <span
                         onClick={() => setExpandedFilters(prev => ({ ...prev, [key]: !prev[key] }))}
                         style={{ fontSize: '0.82rem', color: 'rgba(248,250,252,0.3)', fontWeight: 'bold', cursor: 'pointer' }}
                       >
@@ -518,7 +518,7 @@ export default function Dashboard({ token, onLogout }) {
 
             {/* Bottom Actions */}
             <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.2)' }}>
-              <button 
+              <button
                 onClick={triggerDiscoverySearch}
                 style={{
                   flex: 1, padding: '10px 0', borderRadius: '8px', border: 'none',
@@ -528,7 +528,7 @@ export default function Dashboard({ token, onLogout }) {
               >
                 Search
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setFilterCompany('');
                   setFilterTitles('');
@@ -561,7 +561,7 @@ export default function Dashboard({ token, onLogout }) {
                 {sidebarOpen && <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>LeadSphere AI</span>}
               </div>
               {sidebarOpen && (
-                <button 
+                <button
                   onClick={() => setSidebarOpen(false)}
                   style={{
                     background: 'none', border: 'none', color: 'rgba(248, 250, 252, 0.4)',
@@ -578,9 +578,9 @@ export default function Dashboard({ token, onLogout }) {
             {/* Nav */}
             <nav style={{ flex: 1, padding: '0.75rem 0', overflowY: 'auto' }}>
               {NAV_ITEMS.map(({ id, label, Icon }) => (
-                <div 
-                  key={id} 
-                  style={navItemStyle(activeTab === id)} 
+                <div
+                  key={id}
+                  style={navItemStyle(activeTab === id)}
                   onClick={() => {
                     setActiveTab(id);
                     if (id === 'discovery') {
@@ -639,7 +639,7 @@ export default function Dashboard({ token, onLogout }) {
                   padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
                   fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700,
                   background: settings.autoRespond ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.05)',
-                  color:      settings.autoRespond ? '#34d399'              : 'rgba(248,250,252,0.4)',
+                  color: settings.autoRespond ? '#34d399' : 'rgba(248,250,252,0.4)',
                   border: `1px solid ${settings.autoRespond ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
                   display: 'inline-flex', alignItems: 'center', gap: '4px',
                   transition: 'all 0.2s', outline: 'none'

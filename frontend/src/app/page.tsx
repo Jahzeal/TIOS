@@ -93,7 +93,7 @@ export default function PublicLandingPage() {
           </div>
 
           {/* Desktop & Mobile Actions */}
-            {/* Desktop & Mobile Actions */}
+          {/* Desktop & Mobile Actions */}
           <div className="flex items-center gap-3">
             <Link
               className="hidden md:block text-on-secondary-container font-medium text-label-md font-label-md hover:text-primary transition-colors duration-200 px-3 py-2"
@@ -345,11 +345,10 @@ export default function PublicLandingPage() {
               {/* Card 1: Fluture Front Desk */}
               <div
                 onClick={() => toggleAgent("front-desk")}
-                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
-                  selectedAgents.includes("front-desk")
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${selectedAgents.includes("front-desk")
                     ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
                     : "hover:border-outline bg-surface-container-lowest"
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
@@ -357,11 +356,10 @@ export default function PublicLandingPage() {
                       <Phone className="w-5 h-5" />
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
-                        selectedAgents.includes("front-desk")
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${selectedAgents.includes("front-desk")
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           : "bg-surface-container text-on-surface-variant"
-                      }`}
+                        }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       {selectedAgents.includes("front-desk") ? "SELECTED" : "ACTIVE"}
@@ -392,11 +390,10 @@ export default function PublicLandingPage() {
                     e.stopPropagation();
                     toggleAgent("front-desk");
                   }}
-                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-                    selectedAgents.includes("front-desk")
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${selectedAgents.includes("front-desk")
                       ? "bg-primary text-on-primary shadow-sm"
                       : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
-                  }`}
+                    }`}
                 >
                   {selectedAgents.includes("front-desk") ? (
                     <>
@@ -411,11 +408,10 @@ export default function PublicLandingPage() {
               {/* Card 2: Fluture Sales */}
               <div
                 onClick={() => toggleAgent("sales")}
-                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
-                  selectedAgents.includes("sales")
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${selectedAgents.includes("sales")
                     ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
                     : "hover:border-outline bg-surface-container-lowest"
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
@@ -423,11 +419,10 @@ export default function PublicLandingPage() {
                       <Activity className="w-5 h-5" />
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
-                        selectedAgents.includes("sales")
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${selectedAgents.includes("sales")
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           : "bg-surface-container text-on-surface-variant"
-                      }`}
+                        }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       {selectedAgents.includes("sales") ? "SELECTED" : "ACTIVE"}
@@ -458,11 +453,10 @@ export default function PublicLandingPage() {
                     e.stopPropagation();
                     toggleAgent("sales");
                   }}
-                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-                    selectedAgents.includes("sales")
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${selectedAgents.includes("sales")
                       ? "bg-primary text-on-primary shadow-sm"
                       : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
-                  }`}
+                    }`}
                 >
                   {selectedAgents.includes("sales") ? (
                     <>
@@ -477,11 +471,10 @@ export default function PublicLandingPage() {
               {/* Card 3: Fluture Billing */}
               <div
                 onClick={() => toggleAgent("billing")}
-                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${
-                  selectedAgents.includes("billing")
+                className={`bento-card p-6 flex flex-col justify-between cursor-pointer transition-all duration-200 text-left ${selectedAgents.includes("billing")
                     ? "ring-2 ring-primary border-primary bg-surface-container-lowest shadow-md"
                     : "hover:border-outline bg-surface-container-lowest"
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
@@ -489,11 +482,10 @@ export default function PublicLandingPage() {
                       <CreditCard className="w-5 h-5" />
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${
-                        selectedAgents.includes("billing")
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase ${selectedAgents.includes("billing")
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           : "bg-surface-container text-on-surface-variant"
-                      }`}
+                        }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       {selectedAgents.includes("billing") ? "SELECTED" : "ACTIVE"}
@@ -524,11 +516,10 @@ export default function PublicLandingPage() {
                     e.stopPropagation();
                     toggleAgent("billing");
                   }}
-                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-                    selectedAgents.includes("billing")
+                  className={`w-full py-2.5 px-3 rounded-lg text-label-sm font-label-sm font-medium transition-all flex items-center justify-center gap-1.5 ${selectedAgents.includes("billing")
                       ? "bg-primary text-on-primary shadow-sm"
                       : "bg-surface-container hover:bg-surface-variant text-on-surface border border-outline-variant"
-                  }`}
+                    }`}
                 >
                   {selectedAgents.includes("billing") ? (
                     <>

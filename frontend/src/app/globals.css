@@ -36,7 +36,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6, .font-geist {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-geist {
   font-family: 'Geist', sans-serif;
 }
 
@@ -107,13 +113,16 @@ h1, h2, h3, h4, h5, h6, .font-geist {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: #f7f9fb;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #c6c6cd;
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #515f74;
 }
