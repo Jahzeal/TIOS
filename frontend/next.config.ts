@@ -6,10 +6,6 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/auth/:path*",
-        destination: `${AIOS_BACKEND_URL}/api/auth/:path*`,
-      },
-      {
         source: "/api/email/:path*",
         destination: `${AIOS_BACKEND_URL}/api/email/:path*`,
       },
