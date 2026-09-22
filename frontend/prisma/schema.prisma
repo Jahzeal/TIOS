@@ -45,17 +45,138 @@ model Agent {
 }
 
 model Lead {
-  id           String        @id @default(uuid())
-  name         String?
-  phone        String        @unique
-  email        String?
-  status       String        @default("NEW") // NEW, QUALIFIED, BOOKED, COLD
-  interest     String        @default("MEDIUM") // HIGH, MEDIUM, LOW
-  notes        String?       @db.Text
-  calls        Call[]
-  appointments Appointment[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id               String            @id @default(uuid())
+  jobId            String?
+  job              Job?              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  name             String?
+  companyName      String?
+  website          String?
+  phone            String?
+  email            String?
+  status           String            @default("NEW") // NEW, QUALIFIED, BOOKED, COLD
+  interest         String            @default("MEDIUM") // HIGH, MEDIUM, LOW
+  notes            String?           @db.Text
+  facebook         String?
+  instagram        String?
+  linkedin         String?
+  twitter          String?
+  address          String?
+  description      String?
+  emailStatus      String?           @default("PENDING") // PENDING, GENERATING, COMPLIANCE_APPROVED, COMPLIANCE_REJECTED, SENT, FAILED, SKIPPED_SUPPRESSED, SKIPPED_CAP
+  emailSubject     String?
+  emailBody        String?
+  complianceReason String?
+  sentAt           DateTime?
+  calls            Call[]
+  appointments     Appointment[]
+  receivedEmails   ReceivedEmail[]
+  meetings         UpcomingMeeting[]
+  contacts         Contact[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name        String?
+  role        String?
+  email       String?
+  phone       String?
+  linkedin    String?
+  emailStatus String?   @default("PENDING")
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ConsentLedger {
+  id               String   @id @default(uuid())
+  leadId           String
+  businessName     String
+  email            String
+  relevanceReason  String
+  checkedAt        DateTime @default(now())
+}
+
+model SuppressionList {
+  id             String   @id @default(uuid())
+  emailOrDomain  String   @unique
+  reason         String?
+  createdAt      DateTime @default(now())
+}
+
+model ReceivedEmail {
+  id                  String   @id
+  leadId              String
+  lead                Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  from                String
+  subject             String
+  bodyText            String?
+  bodyHtml            String?
+  receivedAt          DateTime
+  draftedReplySubject String?
+  draftedReplyBody    String?
+  draftedReplyStatus  String   @default("DRAFTED")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model UpcomingMeeting {
+  id            String   @id @default(uuid())
+  leadId        String
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title         String
+  email         String
+  meetingLink   String
+  scheduledAt   DateTime
+  googleEventId String?
+  status        String?  @default("confirmed")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+}
+
+model User {
+  id                       String                    @id @default(uuid())
+  email                    String                    @unique
+  username                 String?
+  password                 String
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  jobs                     Job[]
+  settings                 Settings[]
+  googleCalendarConnection GoogleCalendarConnection?
+}
+
+model Settings {
+  id             String   @id @default(uuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  corporateName  String   @default("")
+  email          String   @default("onboarding@resend.dev")
+  phoneNumber    String   @default("")
+  emailTemplate  String   @default("Exclusive Offer: Free Automation Services for {{company}}")
+  leadsPerDay    Int      @default(15)
+  crawlLocation  String   @default("")
+  crawlIndustry  String   @default("")
+  crawlKeywords  String   @default("")
+  autoRespond    Boolean  @default(true)
+  bookingLink    String   @default("https://calendar.app.google/Zg1o5bgrSsUdPgtS8")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model GoogleCalendarConnection {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email        String
+  calendarId   String   @default("primary")
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  connectedAt  DateTime @default(now())
 }
 
 model Call {
@@ -116,17 +237,25 @@ model KnowledgeBase {
 }
 
 model Job {
-  id          String   @id @default(uuid())
-  queueName   String
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payload     Json
-  status      String   @default("PENDING") // PENDING, PROCESSING, DONE, FAILED
-  availableAt DateTime @default(now())
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-  error       String?  @db.Text
-  createdAt   DateTime @default(now())
+  id          String    @id @default(uuid())
+  queueName   String?   @default("OUTBOUND_CALLBACK")
+  tenantId    String?
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String?   // "SEARCH" | "URL_LIST"
+  query       String?
+  location    String?
+  keywords    String?
+  payload     Json?
+  status      String    @default("PENDING") // PENDING, PROCESSING, DONE, COMPLETED, FAILED
+  availableAt DateTime? @default(now())
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime? @updatedAt
+  leads       Lead[]
 }
 
 model Payment {

@@ -114,9 +114,7 @@ export default function LoginPage() {
   const routeUserAfterLogin = (accountType?: string, token?: string, userEmail?: string) => {
     const type = accountType || authApi.getAccountType();
     if (type === "SALES") {
-      const activeToken = token || authApi.getToken() || "";
-      const activeEmail = userEmail || authApi.getUserEmail() || "";
-      window.location.href = `https://aios-kkkl.onrender.com?token=${encodeURIComponent(activeToken)}&email=${encodeURIComponent(activeEmail)}&auth=true`;
+      window.location.href = "/sales";
     } else {
       window.location.href = "/dashboard";
     }

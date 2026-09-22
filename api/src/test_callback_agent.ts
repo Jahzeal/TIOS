@@ -71,7 +71,7 @@ async function runCallbackAgentTest() {
     console.log(`  [PASS] Job created in database! ID: ${job.id}`);
     console.log(`  Queue: ${job.queueName}`);
     console.log(`  Target Phone: ${testPhone}`);
-    console.log(`  Available At: ${job.availableAt.toISOString()}`);
+    console.log(`  Available At: ${(job.availableAt || new Date()).toISOString()}`);
 
     // 2. Query due jobs from queue (simulates QueueWorkerService)
     console.log('\n2. Simulating QueueWorkerService: Fetching Due Jobs...');

@@ -32,8 +32,8 @@ async function rescheduleJob() {
 
       console.log(`[RESCHEDULED JOB]: ${updated.id}`);
       console.log(`  Created At: ${updated.createdAt.toISOString()}`);
-      console.log(`  New Available At: ${updated.availableAt.toISOString()}`);
-      console.log(`  Is Due Now: ${new Date() >= updated.availableAt ? 'YES (DUE NOW!)' : 'NO'}`);
+      console.log(`  New Available At: ${(updated.availableAt || new Date()).toISOString()}`);
+      console.log(`  Is Due Now: ${new Date() >= (updated.availableAt || new Date()) ? 'YES (DUE NOW!)' : 'NO'}`);
     } else {
       console.log('No pending job found with ID 1c9bc054-eb9d-4d68-b856-a4c961c72235.');
     }

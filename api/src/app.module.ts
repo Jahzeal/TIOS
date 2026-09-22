@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AiModule } from './services/ai/ai.module';
 import { VoiceModule } from './voice/voice.module';
@@ -13,8 +14,18 @@ import { MessagingModule } from './messaging/messaging.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 
+// Sales Engine (AIOS) Modules
+import { FirecrawlModule } from './firecrawl/firecrawl.module';
+import { EmailModule } from './email/email.module';
+import { JobsModule } from './jobs/jobs.module';
+import { HunterModule } from './hunter/hunter.module';
+import { ApolloModule } from './apollo/apollo.module';
+import { MeetingsModule } from './meetings/meetings.module';
+import { AuthModule } from './auth/auth.module';
+
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AiModule,
     VoiceModule,
@@ -28,6 +39,15 @@ import { OnboardingModule } from './onboarding/onboarding.module';
     MessagingModule,
     TenantsModule,
     OnboardingModule,
+    // Sales Engine Modules
+    FirecrawlModule,
+    EmailModule,
+    JobsModule,
+    HunterModule,
+    ApolloModule,
+    MeetingsModule,
+    AuthModule,
   ],
 })
 export class AppModule {}
+

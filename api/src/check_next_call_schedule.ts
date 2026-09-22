@@ -35,7 +35,7 @@ async function checkNextCallSchedule() {
     } else {
       console.log(`\nFound ${targetJobs.length} jobs for +17808025420:`);
       targetJobs.forEach((j, idx) => {
-        const avail = new Date(j.availableAt);
+        const avail = new Date(j.availableAt || new Date());
         const diffMs = avail.getTime() - now.getTime();
         const diffMins = Math.round(diffMs / 60000);
         const isDueNow = diffMs <= 0;

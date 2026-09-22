@@ -65,7 +65,7 @@ export default function Header({
     });
     setAccountType(type);
     if (type === "SALES") {
-      window.location.href = `https://aios-kkkl.onrender.com?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&auth=true`;
+      window.location.href = "/sales";
     } else {
       window.location.href = "/dashboard";
     }

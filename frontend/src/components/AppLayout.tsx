@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [selectedAgentId, setSelectedAgentId] = useState("agent-1");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Bypass internal dashboard layout for public marketing, auth, and onboarding pages
+  // Bypass internal voice receptionist layout for public pages and dedicated sales engine
   const PUBLIC_PREFIXES = [
     "/",
     "/features",
@@ -24,6 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     "/login",
     "/forgot-password",
     "/reset-password",
+    "/sales",
   ];
 
   const isPublicPage = PUBLIC_PREFIXES.some(

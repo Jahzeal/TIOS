@@ -36,7 +36,7 @@ async function debugOutboundExecution() {
         console.log(`  Step:         ${(j.payload as any)?.step || 1}`);
         console.log(`  Status:       ${j.status}`);
         console.log(`  Created At:   ${j.createdAt.toISOString()}`);
-        console.log(`  Available At: ${j.availableAt.toISOString()} (Now: ${now.toISOString()})`);
+        console.log(`  Available At: ${(j.availableAt || new Date()).toISOString()} (Now: ${now.toISOString()})`);
         console.log(`  Attempts:     ${j.attempts} / ${j.maxAttempts}`);
         console.log(`  Error:        ${j.error || 'None'}`);
         console.log('---');

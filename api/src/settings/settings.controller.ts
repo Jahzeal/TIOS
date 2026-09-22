@@ -5,6 +5,16 @@ import { SettingsService } from './settings.service';
 export class SettingsController {
   constructor(@Inject(SettingsService) private readonly settingsService: SettingsService) {}
 
+  @Get()
+  getSettings() {
+    return this.settingsService.getSettings();
+  }
+
+  @Put()
+  updateSettings(@Body() body: any) {
+    return this.settingsService.updateSettings(body);
+  }
+
   @Get('agents')
   listAgents() {
     return this.settingsService.listAgents();

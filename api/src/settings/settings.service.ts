@@ -1,10 +1,13 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OpenAiService } from '../services/ai/openai.service';
 import { config } from '../config';
+import { Settings } from '@prisma/client';
 
 @Injectable()
 export class SettingsService {
+  private readonly logger = new Logger('SettingsService');
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(OpenAiService) private readonly openAiService: OpenAiService,
@@ -16,7 +19,8 @@ export class SettingsService {
         include: { tenant: true },
         orderBy: { createdAt: 'desc' },
       });
-    } catch (err) {
+    } catch (err: any) {
+      this.logger.error(`Error listing agents: ${err.message}`);
       return [];
     }
   }
@@ -24,7 +28,8 @@ export class SettingsService {
   async getAgent(id: string) {
     try {
       return await this.prisma.agent.findUnique({ where: { id } });
-    } catch (err) {
+    } catch (err: any) {
+      this.logger.error(`Error fetching agent ${id}: ${err.message}`);
       return null;
     }
   }
@@ -62,7 +67,8 @@ export class SettingsService {
       }
 
       return updatedAgent;
-    } catch (err) {
+    } catch (err: any) {
+      this.logger.error(`Error updating agent ${id}: ${err.message}`);
       return null;
     }
   }
@@ -122,4 +128,35 @@ export class SettingsService {
       };
     }
   }
+
+  // --- AIOS Sales Settings Methods ---
+  async getSettings(): Promise<Settings> {
+    try {
+      let settings = await this.prisma.settings.findFirst();
+      if (!settings) {
+        settings = await this.prisma.settings.create({ data: {} });
+      }
+      return settings;
+    } catch (err: any) {
+      this.logger.error(`Error fetching settings: ${err.message}`);
+      throw err;
+    }
+  }
+
+  async updateSettings(data: Partial<Settings>): Promise<Settings> {
+    try {
+      const existing = await this.prisma.settings.findFirst();
+      if (!existing) {
+        return await this.prisma.settings.create({ data });
+      }
+      return await this.prisma.settings.update({
+        where: { id: existing.id },
+        data,
+      });
+    } catch (err: any) {
+      this.logger.error(`Error updating settings: ${err.message}`);
+      throw err;
+    }
+  }
 }
+
