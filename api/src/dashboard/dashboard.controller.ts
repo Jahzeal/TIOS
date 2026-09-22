@@ -6,12 +6,15 @@ export class DashboardController {
   constructor(@Inject(DashboardService) private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  getStats() {
-    return this.dashboardService.getStats();
+  getStats(@Query('tenantId') tenantId?: string) {
+    return this.dashboardService.getStats(tenantId);
   }
 
   @Get('recent-calls')
-  getRecentCalls(@Query('limit') limit?: string) {
+  getRecentCalls(
+    @Query('tenantId') tenantId?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.dashboardService.getRecentCalls(limit ? parseInt(limit, 10) : 5);
   }
 }

@@ -5,8 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async getStats() {
+  async getStats(tenantId?: string) {
     try {
+      const callFilter = tenantId ? { tenantId } : undefined;
       const [
         totalCalls,
         inboundCalls,
@@ -16,14 +17,26 @@ export class DashboardService {
         avgAggregate,
         deposits,
       ] = await Promise.all([
-        this.prisma.call.count().catch(() => 0),
-        this.prisma.call.count({ where: { direction: 'INBOUND' } }).catch(() => 0),
-        this.prisma.call.count({ where: { direction: 'OUTBOUND' } }).catch(() => 0),
-        this.prisma.lead.count().catch(() => 0),
-        this.prisma.call.count({ where: { status: 'COMPLETED' } }).catch(() => 0),
-        this.prisma.call.aggregate({ _avg: { duration: true } }).catch(() => ({ _avg: { duration: 0 } })),
+        this.prisma.call.count({ where: callFilter }).catch(() => 0),
+        this.prisma.call.count({ where: { ...callFilter, direction: 'INBOUND' } }).catch(() => 0),
+        this.prisma.call.count({ where: { ...callFilter, direction: 'OUTBOUND' } }).catch(() => 0),
+        this.prisma.lead.count({
+          where: {
+            calls: {
+              some: tenantId ? { tenantId } : {},
+            },
+          },
+        }).catch(() => 0),
+        this.prisma.call.count({ where: { ...callFilter, status: 'COMPLETED' } }).catch(() => 0),
+        this.prisma.call.aggregate({
+          where: callFilter,
+          _avg: { duration: true },
+        }).catch(() => ({ _avg: { duration: 0 } })),
         this.prisma.payment.aggregate({
-          where: { status: 'PAID' },
+          where: {
+            ...(tenantId ? { tenantId } : {}),
+            status: 'PAID',
+          },
           _sum: { amount: true },
           _count: true,
         }).catch(() => ({ _sum: { amount: 0 }, _count: 0 })),
