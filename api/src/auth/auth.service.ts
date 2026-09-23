@@ -127,7 +127,7 @@ export class AuthService implements OnModuleInit {
     const html = `
       <div style="font-family:'Segoe UI',system-ui,sans-serif;max-width:480px;margin:0 auto;background:#0d0f1f;border-radius:16px;overflow:hidden;border:1px solid rgba(99,102,241,0.3)">
         <div style="background:linear-gradient(135deg,#6366f1,#7c3aed);padding:2rem;text-align:center">
-          <h1 style="margin:0;color:#fff;font-size:1.5rem;letter-spacing:-0.5px">🎯 LeadSphere AI</h1>
+          <h1 style="margin:0;color:#fff;font-size:1.5rem;letter-spacing:-0.5px">⚡ Fluture</h1>
           <p style="margin:0.5rem 0 0;color:rgba(255,255,255,0.75);font-size:0.9rem">Email Verification</p>
         </div>
         <div style="padding:2rem;color:#f8fafc">
@@ -154,7 +154,7 @@ export class AuthService implements OnModuleInit {
       {
         from: senderEmail,
         to: [toEmail],
-        subject: `${code} is your LeadSphere AI verification code`,
+        subject: `${code} is your Fluture verification code`,
         html,
       },
       {

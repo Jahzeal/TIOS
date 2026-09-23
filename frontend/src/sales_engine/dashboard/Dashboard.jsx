@@ -558,7 +558,7 @@ export default function Dashboard({ token, onLogout }) {
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#6366f1,#d946ef)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Target size={18} color="#fff" />
                 </div>
-                {sidebarOpen && <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>LeadSphere AI</span>}
+                {sidebarOpen && <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>Fluture Sales</span>}
               </div>
               {sidebarOpen && (
                 <button
