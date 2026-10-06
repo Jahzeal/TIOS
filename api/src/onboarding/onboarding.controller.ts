@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Inject } from '@nestjs/common';
 import {
   OnboardingService,
   OnboardingStep1Dto,
@@ -13,6 +13,11 @@ import {
 @Controller('onboarding')
 export class OnboardingController {
   constructor(@Inject(OnboardingService) private readonly onboardingService: OnboardingService) {}
+
+  @Get('available-numbers')
+  getAvailableNumbers(@Query('country') country?: string, @Query('areaCode') areaCode?: string) {
+    return this.onboardingService.getAvailableNumbers(country || 'US', areaCode);
+  }
 
   @Post('step1')
   step1(@Body() body: OnboardingStep1Dto) {

@@ -11,9 +11,11 @@ export const config = {
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
   twilioPhoneNumber: process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM_PHONE || '',
+  publicApiUrl: process.env.PUBLIC_API_URL || process.env.APP_URL || 'https://api.yourdomain.com',
   emergencyKeywords: [
     'gas leak', 'fire', 'flooding', 'emergency', '911', 'smoke detector',
     'burst pipe', 'injured', 'injury', 'bleeding', 'explosion'
   ],
   rateLimitCallsPerHour: 5
 };
+

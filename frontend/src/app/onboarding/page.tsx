@@ -31,13 +31,16 @@ import {
   Eye,
   EyeOff,
   LogIn,
+  Search,
 } from "lucide-react";
 
 interface PhoneNumberOption {
   id: string;
   number: string;
+  rawNumber?: string;
   location: string;
   type: "Local" | "Toll-Free";
+  isoCountry?: string;
 }
 
 interface ChatMessage {
@@ -46,15 +49,6 @@ interface ChatMessage {
   text: string;
   action?: string;
 }
-
-const AVAILABLE_NUMBERS: PhoneNumberOption[] = [
-  { id: "1", number: "+1 (415) 555-0198", location: "San Francisco, CA", type: "Local" },
-  { id: "2", number: "+1 (415) 555-0247", location: "San Francisco, CA", type: "Local" },
-  { id: "3", number: "+1 (800) 555-0899", location: "United States", type: "Toll-Free" },
-  { id: "4", number: "+1 (415) 555-0871", location: "San Francisco, CA", type: "Local" },
-  { id: "5", number: "+1 (212) 555-0432", location: "New York, NY", type: "Local" },
-  { id: "6", number: "+1 (888) 555-0112", location: "United States", type: "Toll-Free" },
-];
 
 function OnboardingContent() {
   const searchParams = useSearchParams();
@@ -65,6 +59,11 @@ function OnboardingContent() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [availableNumbers, setAvailableNumbers] = useState<PhoneNumberOption[]>([]);
+  const [selectedRawPhone, setSelectedRawPhone] = useState<string>("");
+  const [areaCodeSearch, setAreaCodeSearch] = useState<string>("");
+  const [isLoadingNumbers, setIsLoadingNumbers] = useState<boolean>(false);
+  const [isProvisioningPhone, setIsProvisioningPhone] = useState<boolean>(false);
 
   const isSalesOnly = selectedAgents.includes("sales") && !selectedAgents.includes("front-desk") && !selectedAgents.includes("billing");
   const targetWorkspacePath = isSalesOnly ? "/sales" : "/dashboard";
@@ -123,7 +122,7 @@ function OnboardingContent() {
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
 
-  const [frontDeskPhone, setFrontDeskPhone] = useState<string>("+1 (415) 555-0247");
+  const [frontDeskPhone, setFrontDeskPhone] = useState<string>("");
   const [receptionistName, setReceptionistName] = useState<string>("Alice");
   const [openTime, setOpenTime] = useState<string>("9:00 AM");
   const [closeTime, setCloseTime] = useState<string>("5:00 PM");
@@ -440,6 +439,78 @@ function OnboardingContent() {
       } else {
         setCurrentStep(6);
       }
+    }
+  };
+
+  const [phoneFetchError, setPhoneFetchError] = useState<string | null>(null);
+
+  const fetchAvailableNumbers = async (targetCountry: string = country, targetAreaCode: string = areaCodeSearch) => {
+    setIsLoadingNumbers(true);
+    setPhoneFetchError(null);
+    try {
+      const res = await fetch(
+        `/api/onboarding/available-numbers?country=${encodeURIComponent(targetCountry)}&areaCode=${encodeURIComponent(targetAreaCode)}`
+      );
+      const data = await res.json();
+      if (data.success && data.numbers && data.numbers.length > 0) {
+        setAvailableNumbers(data.numbers);
+        setFrontDeskPhone(data.numbers[0].number);
+        setSelectedRawPhone(data.numbers[0].rawNumber || data.numbers[0].number);
+      } else {
+        setAvailableNumbers([]);
+        setPhoneFetchError(data.error || "No available phone numbers found for this area code in Twilio.");
+      }
+    } catch (err: any) {
+      setAvailableNumbers([]);
+      setPhoneFetchError(err.message || "Failed to contact Twilio API.");
+    } finally {
+      setIsLoadingNumbers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep === 4 && selectedAgents.includes("front-desk") && availableNumbers.length === 0) {
+      fetchAvailableNumbers();
+    }
+  }, [currentStep, country]);
+
+  const handleStep4Submit = async () => {
+    if (!frontDeskPhone) {
+      alert("Please select an available phone line before continuing.");
+      return;
+    }
+
+    setIsProvisioningPhone(true);
+    try {
+      const res = await apiRequest("/onboarding/step4", {
+        method: "POST",
+        body: JSON.stringify({
+          tenantId,
+          tenantName: businessName,
+          selectedPhoneNumber: frontDeskPhone,
+          rawPhoneNumber: selectedRawPhone || frontDeskPhone,
+          receptionistName,
+          calendarProvider,
+          openTime,
+          closeTime,
+        }),
+      });
+
+      if (res?.phoneNumber) {
+        setFrontDeskPhone(res.phoneNumber);
+      }
+
+      if (selectedAgents.includes("sales")) {
+        setCurrentStep(5);
+      } else if (selectedAgents.includes("billing")) {
+        setCurrentStep(6);
+      } else {
+        setCurrentStep(7);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to provision Twilio phone number. Please check your account balance and credentials.");
+    } finally {
+      setIsProvisioningPhone(false);
     }
   };
 
@@ -1323,31 +1394,72 @@ function OnboardingContent() {
 
             <div className="space-y-6">
               <div className="space-y-3">
-                <label className="font-label-md text-xs font-bold text-on-surface">Available Phone Numbers</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {AVAILABLE_NUMBERS.slice(0, 4).map((num) => {
-                    const isSelected = frontDeskPhone === num.number;
-                    return (
-                      <div
-                        key={num.id}
-                        onClick={() => setFrontDeskPhone(num.number)}
-                        className={`p-3.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
-                          isSelected
-                            ? "border-2 border-primary bg-surface-container-low shadow-sm"
-                            : "border-outline-variant hover:bg-surface-container-low"
-                        }`}
-                      >
-                        <div>
-                          <div className="font-bold text-sm text-primary">{num.number}</div>
-                          <div className="text-xs text-on-surface-variant">{num.location}</div>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high">
-                          {num.type}
-                        </span>
-                      </div>
-                    );
-                  })}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="font-label-md text-xs font-bold text-on-surface">Available Phone Numbers</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Area Code (e.g. 415, 212)"
+                      value={areaCodeSearch}
+                      onChange={(e) => setAreaCodeSearch(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          fetchAvailableNumbers(country, areaCodeSearch);
+                        }
+                      }}
+                      className="w-36 px-2.5 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-md text-xs font-medium text-on-surface outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fetchAvailableNumbers(country, areaCodeSearch)}
+                      disabled={isLoadingNumbers}
+                      className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs rounded-md border border-outline-variant transition-colors flex items-center gap-1.5"
+                    >
+                      {isLoadingNumbers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                      Search
+                    </button>
+                  </div>
                 </div>
+
+                {isLoadingNumbers ? (
+                  <div className="p-8 border border-outline-variant/60 rounded-xl bg-surface-container-low flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-xs font-medium">Fetching available numbers from Twilio...</span>
+                  </div>
+                ) : availableNumbers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {availableNumbers.slice(0, 6).map((num) => {
+                      const isSelected = frontDeskPhone === num.number;
+                      return (
+                        <div
+                          key={num.id}
+                          onClick={() => {
+                            setFrontDeskPhone(num.number);
+                            setSelectedRawPhone(num.rawNumber || num.number);
+                          }}
+                          className={`p-3.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                            isSelected
+                              ? "border-2 border-primary bg-surface-container-low shadow-sm"
+                              : "border-outline-variant hover:bg-surface-container-low"
+                          }`}
+                        >
+                          <div>
+                            <div className="font-bold text-sm text-primary">{num.number}</div>
+                            <div className="text-xs text-on-surface-variant">{num.location}</div>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high">
+                            {num.type}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 border border-dashed border-outline-variant rounded-lg text-center text-xs text-on-surface-variant">
+                    {phoneFetchError || "No numbers found for this area code in Twilio inventory. Click search or enter a different area code."}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1405,15 +1517,21 @@ function OnboardingContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (selectedAgents.includes("sales")) setCurrentStep(5);
-                    else if (selectedAgents.includes("billing")) setCurrentStep(6);
-                    else setCurrentStep(7);
-                  }}
-                  className="bg-primary text-on-primary h-11 px-6 rounded-lg font-label-md text-sm font-bold flex items-center gap-2 hover:bg-on-surface transition-colors"
+                  disabled={isProvisioningPhone}
+                  onClick={handleStep4Submit}
+                  className="bg-primary text-on-primary h-11 px-6 rounded-lg font-label-md text-sm font-bold flex items-center gap-2 hover:bg-on-surface transition-colors disabled:opacity-50"
                 >
-                  Save Front Desk &amp; Next
-                  <ArrowRight className="w-4 h-4" />
+                  {isProvisioningPhone ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Provisioning Phone Line...
+                    </>
+                  ) : (
+                    <>
+                      Save Front Desk &amp; Next
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
