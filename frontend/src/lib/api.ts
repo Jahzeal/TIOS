@@ -58,7 +58,7 @@ export const authApi = {
     return localStorage.getItem("auth_token");
   },
 
-  getAccountType(): "SALES" | "VOICE" | "BOTH" {
+  getAccountType(): "SALES" | "VOICE" | "BOTH" | "ADMIN" {
     if (typeof window === "undefined") return "VOICE";
     return (localStorage.getItem("auth_account_type") as any) || "VOICE";
   },
@@ -71,7 +71,7 @@ export const authApi = {
   setSession(data: {
     token: string;
     email: string;
-    accountType?: "SALES" | "VOICE" | "BOTH";
+    accountType?: "SALES" | "VOICE" | "BOTH" | "ADMIN";
     userId?: string;
   }) {
     if (typeof window === "undefined") return;

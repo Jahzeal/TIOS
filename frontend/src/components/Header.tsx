@@ -34,7 +34,7 @@ export default function Header({
   const [agents, setAgents] = useState<{ id: string; name: string; phoneNumber?: string }[]>([]);
   const [isWebCallOpen, setIsWebCallOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [accountType, setAccountType] = useState<"SALES" | "VOICE" | "BOTH">("VOICE");
+  const [accountType, setAccountType] = useState<"SALES" | "VOICE" | "BOTH" | "ADMIN">("VOICE");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -77,6 +77,7 @@ export default function Header({
   };
 
   const activeAgent = agents.find((a) => a.id === selectedAgentId) || agents[0];
+  const isAdmin = accountType === "ADMIN";
 
   return (
     <>
@@ -104,6 +105,17 @@ export default function Header({
 
         {/* Header Actions */}
         <div className="flex items-center space-x-3">
+          {/* Admin Portal Quick Link */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 font-medium text-xs rounded-lg transition-all flex items-center gap-1.5"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Admin Portal</span>
+            </Link>
+          )}
+
           {/* Workspace Suite Switcher (Sales AIOS vs Voice TIOS) */}
           <div className="hidden sm:flex items-center bg-slate-950/80 border border-slate-800 rounded-lg p-0.5 text-xs">
             <button
@@ -121,7 +133,7 @@ export default function Header({
             <button
               onClick={() => toggleWorkspace("VOICE")}
               className={`px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                accountType === "VOICE" || accountType === "BOTH"
+                accountType === "VOICE" || accountType === "BOTH" || accountType === "ADMIN"
                   ? "bg-emerald-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
               }`}
@@ -157,11 +169,24 @@ export default function Header({
                     {userEmail || "Signed In User"}
                   </div>
                   <div className="text-[11px] text-indigo-400 capitalize mt-0.5">
-                    {accountType === "SALES" ? "Sales Agent (AIOS)" : "Voice Receptionist (TIOS)"}
+                    {isAdmin
+                      ? "Platform Administrator"
+                      : accountType === "SALES"
+                      ? "Sales Agent (AIOS)"
+                      : "Voice Receptionist (TIOS)"}
                   </div>
                 </div>
 
                 <div className="py-1">
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-3 py-1.5 text-xs text-amber-400 font-semibold hover:bg-slate-800 hover:text-amber-300"
+                    >
+                      Admin Dashboard (Pricing &amp; Units)
+                    </Link>
+                  )}
                   <Link
                     href="/settings"
                     onClick={() => setIsUserMenuOpen(false)}

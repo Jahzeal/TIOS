@@ -5,7 +5,7 @@ import path from "path";
 
 const ACCOUNTS_FILE = path.join(process.cwd(), "src", "lib", "accounts.json");
 
-function getStoredAccounts(): Record<string, { username?: string; accountType: "SALES" | "VOICE" | "BOTH"; password?: string }> {
+function getStoredAccounts(): Record<string, { username?: string; accountType: "SALES" | "VOICE" | "BOTH" | "ADMIN"; password?: string }> {
   try {
     if (fs.existsSync(ACCOUNTS_FILE)) {
       const data = fs.readFileSync(ACCOUNTS_FILE, "utf-8");
@@ -15,6 +15,11 @@ function getStoredAccounts(): Record<string, { username?: string; accountType: "
     console.warn("Could not read accounts.json:", err);
   }
   return {
+    "jahzealibeh16@gmail.com": {
+      username: "Jahzeal Ibeh (Admin)",
+      accountType: "ADMIN",
+      password: "password",
+    },
     "olawoagbotomori@gmail.com": {
       username: "Olawo Agbotomori",
       accountType: "SALES",
@@ -22,7 +27,7 @@ function getStoredAccounts(): Record<string, { username?: string; accountType: "
   };
 }
 
-function saveStoredAccount(email: string, details: { username?: string; accountType: "SALES" | "VOICE" | "BOTH"; password?: string }) {
+function saveStoredAccount(email: string, details: { username?: string; accountType: "SALES" | "VOICE" | "BOTH" | "ADMIN"; password?: string }) {
   try {
     const accounts = getStoredAccounts();
     accounts[email.toLowerCase()] = {
@@ -58,12 +63,17 @@ export async function POST(
 
       // Check stored accounts first
       const stored = getStoredAccounts();
-      let accountType: "SALES" | "VOICE" | "BOTH" = "VOICE";
+      const userAccount = stored[email];
+      let accountType: "SALES" | "VOICE" | "BOTH" | "ADMIN" = "VOICE";
 
-      if (stored[email]?.accountType) {
-        accountType = stored[email].accountType;
-      } else if (email.includes("sales") || email.includes("lead") || email.includes("aios") || email.includes("olawoagbotomori")) {
-        accountType = "SALES";
+      if (userAccount) {
+        if (userAccount.password && password && password !== userAccount.password) {
+          return NextResponse.json(
+            { error: "Invalid password for account" },
+            { status: 401 }
+          );
+        }
+        accountType = userAccount.accountType;
       } else {
         try {
           const tenant = await db.tenant.findFirst({
@@ -92,8 +102,8 @@ export async function POST(
     if (subpath === "register" || subpath.endsWith("/register")) {
       const email = (body.email || "").trim().toLowerCase();
       const username = body.username || email.split("@")[0] || "User";
-      const accountType: "SALES" | "VOICE" | "BOTH" =
-        body.accountType === "SALES" ? "SALES" : body.accountType === "BOTH" ? "BOTH" : "VOICE";
+      const accountType: "SALES" | "VOICE" | "BOTH" | "ADMIN" =
+        body.accountType === "SALES" ? "SALES" : body.accountType === "BOTH" ? "BOTH" : body.accountType === "ADMIN" ? "ADMIN" : "VOICE";
 
       if (!email) {
         return NextResponse.json(
@@ -147,8 +157,8 @@ export async function POST(
       }
 
       const stored = getStoredAccounts();
-      const accountType: "SALES" | "VOICE" | "BOTH" =
-        stored[email]?.accountType || (email.includes("sales") || email.includes("olawoagbotomori") ? "SALES" : "VOICE");
+      const accountType: "SALES" | "VOICE" | "BOTH" | "ADMIN" =
+        stored[email]?.accountType || "VOICE";
       const token = `google_sess_${Buffer.from(`${email}:${Date.now()}`).toString("base64")}`;
 
       return NextResponse.json({

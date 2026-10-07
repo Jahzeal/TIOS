@@ -135,7 +135,9 @@ export default function LoginPage() {
 
   const routeUserAfterLogin = (accountType?: string) => {
     const type = accountType || authApi.getAccountType();
-    if (type === "SALES") {
+    if (type === "ADMIN") {
+      window.location.href = "/admin";
+    } else if (type === "SALES") {
       window.location.href = "/sales";
     } else {
       window.location.href = "/dashboard";

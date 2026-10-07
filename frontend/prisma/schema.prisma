@@ -304,3 +304,32 @@ model SmsLog {
   status    String   @default("SENT") // SENT, FAILED
   createdAt DateTime @default(now())
 }
+
+model PlatformPlan {
+  id               String   @id @default(uuid())
+  slug             String   @unique // front-desk, sales, billing
+  name             String
+  role             String
+  description      String   @db.Text
+  monthlyPrice     Float    @default(99.0)
+  yearlyPrice      Float    @default(79.0)
+  includedMinutes  Int      @default(300)
+  overagePerMinute Float    @default(0.08)
+  badge            String?
+  features         Json     @default("[]")
+  isActive         Boolean  @default(true)
+  stripePriceId    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model BundleDiscountRule {
+  id                  String   @id @default(uuid())
+  twoAgentsPercent    Float    @default(10.0)
+  threeAgentsPercent  Float    @default(15.0)
+  annualPrepayPercent Float    @default(20.0)
+  trialDays           Int      @default(14)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+

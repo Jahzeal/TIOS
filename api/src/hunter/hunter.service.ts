@@ -13,18 +13,11 @@ export interface HunterContact {
 export class HunterService {
   private readonly logger = new Logger(HunterService.name);
   private readonly apiKey: string;
-  private readonly isMockMode: boolean;
 
   constructor(@Optional() @Inject(ConfigService) private configService: ConfigService) {
     this.apiKey = this.configService?.get<string>('HUNTER_API_KEY') || process.env.HUNTER_API_KEY || '';
-    this.isMockMode =
-      !this.apiKey ||
-      this.apiKey.trim() === '' ||
-      this.apiKey.startsWith('YOUR_');
-    if (this.isMockMode) {
-      this.logger.warn(
-        'Hunter.io API key not set or invalid. Operating in Sandbox/Mock Mode.',
-      );
+    if (!this.apiKey || this.apiKey.trim() === '' || this.apiKey.startsWith('YOUR_')) {
+      this.logger.warn('Hunter.io API key is not configured.');
     } else {
       this.logger.log('Hunter.io API key detected. Operating in Live Mode.');
     }
@@ -41,14 +34,12 @@ export class HunterService {
       return [];
     }
 
-    this.logger.log(
-      `Searching decision-maker contacts for domain: ${cleanDomain}`,
-    );
-
-    if (this.isMockMode) {
-      await this.sleep(1000);
-      return this.generateMockContacts(cleanDomain);
+    if (!this.apiKey || this.apiKey.trim() === '' || this.apiKey.startsWith('YOUR_')) {
+      this.logger.warn(`Hunter.io API key missing. Skipping search for ${cleanDomain}.`);
+      return [];
     }
+
+    this.logger.log(`Searching decision-maker contacts for domain: ${cleanDomain}`);
 
     try {
       const response = await axios.get(
@@ -78,7 +69,7 @@ export class HunterService {
           }));
 
         this.logger.log(
-          `Hunter.io found ${contacts.length} contacts for ${cleanDomain}`,
+          `Hunter.io found ${contacts.length} live contacts for ${cleanDomain}`,
         );
         return contacts;
       }
@@ -105,26 +96,5 @@ export class HunterService {
         .replace('www.', '')
         .split('/')[0];
     }
-  }
-
-  private sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private generateMockContacts(domain: string): HunterContact[] {
-    return [
-      {
-        name: 'Dr. James Smith',
-        role: 'Clinical Director & Chief Dentist',
-        email: `jahzealibeh16@gmail.com`,
-        phone: '+44 20 7946 0199',
-      },
-      {
-        name: 'Dr. Sarah Jenkins',
-        role: 'Practice Manager',
-        email: `aukwu@senoraconstruction.com`,
-        phone: '+44 20 7946 0233',
-      },
-    ];
   }
 }

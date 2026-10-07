@@ -40,6 +40,14 @@ export const navItems = [
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    const accType = authApi.getAccountType();
+    if (accType === "ADMIN") {
+      setIsAdmin(true);
+    }
+  }, []);
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-300 w-64 p-4">
@@ -65,7 +73,22 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarPr
       </div>
 
       {/* Nav Links */}
-      <nav className="space-y-1.5 flex-1">
+      <nav className="space-y-1.5 flex-1 overflow-y-auto">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            onClick={() => setMobileMenuOpen && setMobileMenuOpen(false)}
+            className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all mb-2 ${
+              pathname.startsWith("/admin")
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
+                : "text-amber-400 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/20"
+            }`}
+          >
+            <Building2 className="h-4 w-4 text-amber-400" />
+            <span>Admin Dashboard</span>
+          </Link>
+        )}
+
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           const Icon = item.icon;
