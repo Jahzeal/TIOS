@@ -25,6 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     "/forgot-password",
     "/reset-password",
     "/sales",
+    "/admin",
   ];
 
   const isPublicPage = PUBLIC_PREFIXES.some(
