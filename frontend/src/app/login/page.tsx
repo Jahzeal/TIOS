@@ -134,10 +134,10 @@ export default function LoginPage() {
   }, [viewMode, resendCountdown]);
 
   const routeUserAfterLogin = (accountType?: string) => {
-    const type = accountType || authApi.getAccountType();
-    if (type === "ADMIN") {
+    const rawType = (accountType || authApi.getAccountType() || "").trim().toUpperCase();
+    if (rawType === "ADMIN") {
       window.location.href = "/admin";
-    } else if (type === "SALES") {
+    } else if (rawType === "SALES") {
       window.location.href = "/sales";
     } else {
       window.location.href = "/dashboard";

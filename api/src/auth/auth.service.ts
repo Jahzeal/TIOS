@@ -33,19 +33,42 @@ export class AuthService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      const userCount = await this.prisma.user.count();
-      if (userCount === 0) {
-        const hashedPassword = this.hashPassword('admin123');
-        await this.prisma.user.create({
-          data: {
-            email: 'admin@aios.com',
-            password: hashedPassword,
-          },
+      const adminEmail = (
+        this.configService?.get<string>('ADMIN_EMAIL') ||
+        process.env.ADMIN_EMAIL ||
+        ''
+      ).toLowerCase().trim();
+
+      const adminPassword =
+        this.configService?.get<string>('ADMIN_PASSWORD') ||
+        process.env.ADMIN_PASSWORD ||
+        '';
+
+      const adminUsername =
+        this.configService?.get<string>('ADMIN_USERNAME') ||
+        process.env.ADMIN_USERNAME ||
+        'Platform Administrator';
+
+      if (adminEmail && adminPassword) {
+        const existingAdmin = await this.prisma.user.findUnique({
+          where: { email: adminEmail },
         });
-        this.logger.log('Default admin user seeded: admin@aios.com / admin123');
+
+        if (!existingAdmin) {
+          const hashedPassword = this.hashPassword(adminPassword);
+          await this.prisma.user.create({
+            data: {
+              email: adminEmail,
+              username: adminUsername,
+              password: hashedPassword,
+              accountType: 'ADMIN',
+            },
+          });
+          this.logger.log(`Admin account provisioned from environment: ${adminEmail}`);
+        }
       }
     } catch (err: any) {
-      this.logger.warn(`Could not seed default admin user: ${err.message}`);
+      this.logger.warn(`Could not initialize admin user: ${err.message}`);
     }
   }
 

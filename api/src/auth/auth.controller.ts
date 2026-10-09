@@ -25,12 +25,21 @@ export class AuthController {
     if (!email || !password)
       throw new UnauthorizedException('Email and password required');
 
+    const cleanEmail = email.toLowerCase().trim();
     const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: cleanEmail },
     });
 
-    if (!user || !this.authService.verifyPassword(password, user.password)) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      throw new UnauthorizedException(
+        'No account found with this email address. Please check your email or sign up.',
+      );
+    }
+
+    if (!this.authService.verifyPassword(password, user.password)) {
+      throw new UnauthorizedException(
+        'Incorrect password. Please verify your password and try again.',
+      );
     }
 
     const token = this.authService.createToken(user.id, user.email);

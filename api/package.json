@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "prisma generate --config=../frontend/prisma.config.ts --schema=../frontend/prisma/schema.prisma && tsc",
+    "seed": "tsx src/seed_admin.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

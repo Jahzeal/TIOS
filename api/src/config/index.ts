@@ -16,6 +16,9 @@ export const config = {
     'gas leak', 'fire', 'flooding', 'emergency', '911', 'smoke detector',
     'burst pipe', 'injured', 'injury', 'bleeding', 'explosion'
   ],
+  adminEmail: process.env.ADMIN_EMAIL || '',
+  adminPassword: process.env.ADMIN_PASSWORD || '',
+  adminUsername: process.env.ADMIN_USERNAME || 'Platform Administrator',
   rateLimitCallsPerHour: 5
 };
 

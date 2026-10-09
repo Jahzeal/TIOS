@@ -76,13 +76,22 @@ export async function POST(
         accountType = userAccount.accountType;
       } else {
         try {
-          const tenant = await db.tenant.findFirst({
-            where: { name: { contains: email.split("@")[0], mode: "insensitive" } },
+          const dbUser = await db.user.findUnique({
+            where: { email },
           });
-          if (tenant) {
-            accountType = "VOICE";
+          if (dbUser) {
+            accountType = (dbUser.accountType as any) || "VOICE";
+          } else {
+            const tenant = await db.tenant.findFirst({
+              where: { name: { contains: email.split("@")[0], mode: "insensitive" } },
+            });
+            if (tenant) {
+              accountType = "VOICE";
+            }
           }
-        } catch {}
+        } catch (dbErr) {
+          console.warn("[Auth API] DB user lookup failed:", dbErr);
+        }
       }
 
       const token = `sess_${Buffer.from(`${email}:${Date.now()}`).toString("base64")}`;
