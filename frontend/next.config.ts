@@ -41,10 +41,6 @@ const nextConfig: NextConfig = {
         source: "/api/hunter/:path*",
         destination: `${API_BACKEND_URL}/api/hunter/:path*`,
       },
-      {
-        source: "/api/auth/:path*",
-        destination: `${API_BACKEND_URL}/api/auth/:path*`,
-      },
     ];
   },
 };
