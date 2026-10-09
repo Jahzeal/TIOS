@@ -228,7 +228,15 @@ export default function AdminDashboardPage() {
 
   // Simulator Calculations
   const calculateSimTotal = () => {
-    if (!pricing) return { subtotal: 0, discount: 0, total: 0 };
+    if (!pricing) {
+      return {
+        subtotal: 0,
+        discount: 0,
+        discountPercent: 0,
+        total: 0,
+        includedMinutes: 0,
+      };
+    }
     const activeAgents = pricing.agents.filter((a) => simSelectedAgents.includes(a.id));
     const isYearly = simBillingCycle === "yearly";
 
